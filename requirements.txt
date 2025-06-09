@@ -7,3 +7,4 @@ PyMySQL==1.0.3
 pytz==2023.3
 reportlab
 Flask-Migrate
+gunicorn
