@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+{% block title %}Add Project - Research Projects{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Add New Project</h2>
+
+<form method="POST" novalidate>
+  {{ form.hidden_tag() }}
+
+  <div class="mb-3">
+    {{ form.serial_no.label(class="form-label") }}
+    {{ form.serial_no(class="form-control", type="number") }}
+    {% for error in form.serial_no.errors %}
+      <div class="text-danger small">{{ error }}</div>
+    {% endfor %}
+  </div>
+
+  <div class="mb-3">
+    {{ form.title.label(class="form-label") }}
+    {{ form.title(class="form-control") }}
+    {% for error in form.title.errors %}
+      <div class="text-danger small">{{ error }}</div>
+    {% endfor %}
+  </div>
+
+  <div class="mb-3">
+    {{ form.academia.label(class="form-label") }}
+    {{ form.academia(class="form-control") }}
+    {% for error in form.academia.errors %}
+      <div class="text-danger small">{{ error }}</div>
+    {% endfor %}
+  </div>
+
+  <div class="mb-3">
+    {{ form.pi_name.label(class="form-label") }}
+    {{ form.pi_name(class="form-control") }}
+    {% for error in form.pi_name.errors %}
+      <div class="text-danger small">{{ error }}</div>
+    {% endfor %}
+  </div>
+
+  <div class="mb-3">
+    {{ form.coord_lab.label(class="form-label") }}
+    {{ form.coord_lab(class="form-control") }}
+    {% for error in form.coord_lab.errors %}
+      <div class="text-danger small">{{ error }}</div>
+    {% endfor %}
+  </div>
+
+  <div class="mb-3">
+    {{ form.scientist.label(class="form-label") }}
+    {{ form.scientist(class="form-control") }}
+    {% for error in form.scientist.errors %}
+      <div class="text-danger small">{{ error }}</div>
+    {% endfor %}
+  </div>
+
+  <div class="mb-3">
+    {{ form.vertical.label(class="form-label") }}
+    {{ form.vertical(class="form-control") }}
+    {% for error in form.vertical.errors %}
+      <div class="text-danger small">{{ error }}</div>
+    {% endfor %}
+  </div>
+
+  <div class="mb-3">
+    {{ form.cost_lakhs.label(class="form-label") }}
+    {{ form.cost_lakhs(class="form-control") }}
+    {% for error in form.cost_lakhs.errors %}
+      <div class="text-danger small">{{ error }}</div>
+    {% endfor %}
+  </div>
+
+  <div class="mb-3">
+    {{ form.sanctioned_date.label(class="form-label") }}
+    {{ form.sanctioned_date(class="form-control", placeholder="YYYY-MM-DD") }}
+    {% for error in form.sanctioned_date.errors %}
+      <div class="text-danger small">{{ error }}</div>
+    {% endfor %}
+  </div>
+
+  <div class="mb-3">
+    {{ form.original_pdc.label(class="form-label") }}
+    {{ form.original_pdc(class="form-control", placeholder="YYYY-MM-DD") }}
+    {% for error in form.original_pdc.errors %}
+      <div class="text-danger small">{{ error }}</div>
+    {% endfor %}
+  </div>
+
+  <div class="mb-3">
+    {{ form.revised_pdc.label }}
+    {{ form.revised_pdc(class="form-control") }}
+    {% for error in form.revised_pdc.errors %}
+        <div class="text-danger">{{ error }}</div>
+    {% endfor %}
+  </div>
+
+  <div class="mb-3">
+    {{ form.stakeholders.label(class="form-label") }}
+    {{ form.stakeholders(class="form-control") }}
+    {% for error in form.stakeholders.errors %}
+      <div class="text-danger small">{{ error }}</div>
+    {% endfor %}
+  </div>
+
+    <div class="mb-3">
+    {{ form.expected_deliverables.label(class="form-label") }}
+    {{ form.expected_deliverables(class="form-control") }}
+    {% for error in form.expected_deliverables.errors %}
+      <div class="text-danger small">{{ error }}</div>
+    {% endfor %}
+  </div>
+
+  <div class="mb-3">
+    {{ form.Outcome_Dovetailing_with_Ongoing_Work.label(class="form-label") }}
+    {{ form.Outcome_Dovetailing_with_Ongoing_Work(class="form-control") }}
+    {% for error in form.Outcome_Dovetailing_with_Ongoing_Work.errors %}
+      <div class="text-danger small">{{ error }}</div>
+    {% endfor %}
+  </div>
+  
+  <!-- RAB Meeting Scheduled Date -->
+  <div class="mb-3">
+    {{ form.rab_meeting_date.label(class="form-label") }}
+    {% if form.rab_meeting_date.data %}
+      <div class="border rounded p-2 mb-2" style="background:#f8f9fa; max-height:80px; overflow:auto; font-size:0.95em;">
+        {% for date in form.rab_meeting_date.data.split('\n') %}
+          <div class="mb-1 text-secondary" style="white-space:pre-line;">{{ date }}</div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="text-muted mb-2">No previous RAB meeting dates.</div>
+    {% endif %}
+    {{ form.rab_meeting_date(class="form-control", placeholder="Add new RAB meeting date") }}
+    {% for error in form.rab_meeting_date.errors %}
+      <div class="text-danger small">{{ error }}</div>
+    {% endfor %}
+  </div>
+
+  <!-- RAB Meeting Held Date -->
+  <div class="mb-3">
+    {{ form.rab_meeting_held_date.label(class="form-label") }}
+    {% if form.rab_meeting_held_date.data %}
+      <div class="border rounded p-2 mb-2" style="background:#f8f9fa; max-height:80px; overflow:auto; font-size:0.95em;">
+        {% for date in form.rab_meeting_held_date.data.split('\n') %}
+          <div class="mb-1 text-secondary" style="white-space:pre-line;">{{ date }}</div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="text-muted mb-2">No previous RAB meeting held dates.</div>
+    {% endif %}
+    {{ form.rab_meeting_held_date(class="form-control", placeholder="Add new RAB meeting held date") }}
+    {% for error in form.rab_meeting_held_date.errors %}
+      <div class="text-danger small">{{ error }}</div>
+    {% endfor %}
+  </div>
+
+  <!-- RAB Minutes of Meeting -->
+  <div class="mb-3">
+    {{ form.rab_minutes.label(class="form-label") }}
+    {% if form.rab_minutes.data %}
+      <div class="border rounded p-2 mb-2" style="background:#f8f9fa; max-height:80px; overflow:auto; font-size:0.95em;">
+        {% for mom in form.rab_minutes.data.split('\n') %}
+          <div class="mb-1 text-secondary" style="white-space:pre-line;">{{ mom }}</div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="text-muted mb-2">No previous RAB MoM.</div>
+    {% endif %}
+    {{ form.rab_minutes(class="form-control", placeholder="Add new RAB MoM") }}
+    {% for error in form.rab_minutes.errors %}
+      <div class="text-danger small">{{ error }}</div>
+    {% endfor %}
+  </div>
+
+  <!-- GC Meeting Scheduled Date -->
+  <div class="mb-3">
+    {{ form.gc_meeting_date.label(class="form-label") }}
+    {% if form.gc_meeting_date.data %}
+      <div class="border rounded p-2 mb-2" style="background:#f8f9fa; max-height:80px; overflow:auto; font-size:0.95em;">
+        {% for date in form.gc_meeting_date.data.split('\n') %}
+          <div class="mb-1 text-secondary" style="white-space:pre-line;">{{ date }}</div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="text-muted mb-2">No previous GC meeting dates.</div>
+    {% endif %}
+    {{ form.gc_meeting_date(class="form-control", placeholder="Add new GC meeting date") }}
+    {% for error in form.gc_meeting_date.errors %}
+      <div class="text-danger small">{{ error }}</div>
+    {% endfor %}
+  </div>
+
+  <!-- GC Meeting Held Date -->
+  <div class="mb-3">
+    {{ form.gc_meeting_held_date.label(class="form-label") }}
+    {% if form.gc_meeting_held_date.data %}
+      <div class="border rounded p-2 mb-2" style="background:#f8f9fa; max-height:80px; overflow:auto; font-size:0.95em;">
+        {% for date in form.gc_meeting_held_date.data.split('\n') %}
+          <div class="mb-1 text-secondary" style="white-space:pre-line;">{{ date }}</div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="text-muted mb-2">No previous GC meeting held dates.</div>
+    {% endif %}
+    {{ form.gc_meeting_held_date(class="form-control", placeholder="Add new GC meeting held date") }}
+    {% for error in form.gc_meeting_held_date.errors %}
+      <div class="text-danger small">{{ error }}</div>
+    {% endfor %}
+  </div>
+
+  <!-- GC Minutes of Meeting -->
+  <div class="mb-3">
+    {{ form.gc_minutes.label(class="form-label") }}
+    {% if form.gc_minutes.data %}
+      <div class="border rounded p-2 mb-2" style="background:#f8f9fa; max-height:80px; overflow:auto; font-size:0.95em;">
+        {% for mom in form.gc_minutes.data.split('\n') %}
+          <div class="mb-1 text-secondary" style="white-space:pre-line;">{{ mom }}</div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="text-muted mb-2">No previous GC MoM.</div>
+    {% endif %}
+    {{ form.gc_minutes(class="form-control", placeholder="Add new GC MoM") }}
+    {% for error in form.gc_minutes.errors %}
+      <div class="text-danger small">{{ error }}</div>
+    {% endfor %}
+  </div>
+
+  <!-- Technical Status section -->
+  <div class="mb-3">
+    {{ form.technical_status.label(class="form-label") }}
+    {% if form.technical_status.data %}
+      <div class="border rounded p-2 mb-2" style="background:#f8f9fa; max-height:80px; overflow:auto; font-size:0.95em;">
+        {% for rec in form.technical_status.data.split('\n') %}
+          <div class="mb-1 text-secondary" style="white-space:pre-line;">{{ rec }}</div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="text-muted mb-2">No previous technical updates.</div>
+    {% endif %}
+    {{ form.technical_status(class="form-control", placeholder="Add new update") }}
+    {% for error in form.technical_status.errors %}
+      <div class="text-danger small">{{ error }}</div>
+    {% endfor %}
+  </div>
+
+  <div class="mb-3">
+    {{ form.administrative_status.label(class="form-label") }}
+    {{ form.administrative_status(class="form-control") }}
+    {% for error in form.administrative_status.errors %}
+      <div class="text-danger text-capitalize">{{ error }}</div>
+    {% endfor %}
+  </div>
+
+  {{ form.submit(class="btn btn-success") }}
+  <a href="{{ url_for('dashboard') }}" class="btn btn-secondary ms-2">Cancel</a>
+</form>
+{% endblock %}

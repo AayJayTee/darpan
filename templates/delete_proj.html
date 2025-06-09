@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="container mt-5">
+    <h2 class="mb-4">Delete a Project</h2>
+
+    <form method="POST">
+      <div class="form-group">
+        <label for="projectSearch">Search Project Title:</label>
+        <input type="text" id="projectSearch" class="form-control mb-3" placeholder="Start typing..." oninput="filterProjects()">
+
+        <select name="project_id" id="projectDropdown" class="form-control d-none" size="6" required>
+          {% for project in projects %}
+            <option value="{{ project.id }}">{{ project.title }} ({{ project.serial_no }})</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <button type="submit" class="btn btn-danger mt-3">Delete Selected Project</button>
+      <a href="{{ url_for('dashboard') }}" class="btn btn-secondary mt-3">Back</a>
+    </form>
+  </div>
+
+  <script>
+    function filterProjects() {
+      const input = document.getElementById("projectSearch").value.toLowerCase();
+      const dropdown = document.getElementById("projectDropdown");
+      const options = dropdown.options;
+      let anyMatch = false;
+
+      if (input.length === 0) {
+        dropdown.classList.add("d-none");
+        return;
+      }
+
+      for (let i = 0; i < options.length; i++) {
+        const optionText = options[i].text.toLowerCase();
+        const match = optionText.includes(input);
+        options[i].style.display = match ? "" : "none";
+        if (match) anyMatch = true;
+      }
+
+      dropdown.classList.toggle("d-none", !anyMatch);
+    }
+  </script>
+{% endblock %}

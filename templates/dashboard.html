@@ -1,0 +1,425 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+  <style>
+    .wide-col1 {
+      min-width:100px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+  </style>
+
+  <style>
+    .wide-col2 {
+      min-width: 150px;
+      max-width: 400px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+  </style>
+
+  <style>
+    .wide-col3 {
+      min-width: 200px;
+      max-width: 400px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+  </style>
+
+  <style>
+    .wide-col4 {
+      min-width: 140px;
+      max-width: 400px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+  </style>
+
+  <style>
+    .wide-col5 {
+      min-width: 140px;
+      max-width: 400px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+  </style>
+
+  {% if approaching_pdc %}
+    <div class="alert alert-warning d-flex flex-column justify-content-center align-items-start" style="min-height:90px;">
+      <strong>Approaching PDC Deadlines:</strong>
+      <ul class="mb-0">
+        {% for p in approaching_pdc %}
+          <li>{{ p.title }} (PDC: {{ p.revised_pdc }})</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+
+  <h2 class="mb-4">DIA-CoE Projects DARPAN</h2>
+
+  {% if current_user.role == 'admin' %}
+    <div class="mb-4 d-flex flex-wrap gap-3">
+      <a href="{{ url_for('add_project') }}" class="btn btn-success">Add Project</a>
+      <a href="{{ url_for('modify_search') }}" class="btn btn-warning me-2">Modify Project</a>
+      <a href="{{ url_for('delete_project') }}" class="btn btn-danger">Delete Project</a>
+      <a href="{{ url_for('view_logs') }}" class="btn btn-secondary">View Logs</a>
+      <a href="{{ url_for('download_csv') }}" class="btn btn-secondary">Download CSV</a>
+      <a href="{{ url_for('download_pdf') }}" class="btn btn-secondary">Download PDF</a>
+    </div>
+
+    <!-- Filter/Search Form -->
+    <form method="get" action="{{ url_for('dashboard') }}" class="row g-3 mb-4 align-items-end">
+      <div class="col-md-4">
+        <select name="column" class="form-select" id="columnSelect" onchange="updateInputType()">
+          <option value="serial_no" {% if request.args.get('column') == 'serial_no' %}selected{% endif %}>Serial No</option>
+          <option value="title" {% if request.args.get('column') == 'title' %}selected{% endif %}>Nomenclature</option>
+          <option value="vertical" {% if request.args.get('column') == 'vertical' %}selected{% endif %}>Research Vertical</option>
+          <option value="academia" {% if request.args.get('column') == 'academia' %}selected{% endif %}>Academia/Institute</option>
+          <option value="pi_name" {% if request.args.get('column') == 'pi_name' %}selected{% endif %}>PI Name</option>
+          <option value="coord_lab" {% if request.args.get('column') == 'coord_lab' %}selected{% endif %}>Coordinating Lab</option>
+          <option value="scientist" {% if request.args.get('column') == 'scientist' %}selected{% endif %}>Coordinating Scientist</option>
+          <option value="cost_lakhs" {% if request.args.get('column') == 'cost_lakhs' %}selected{% endif %}>Cost (Lakhs)</option>
+          <option value="sanctioned_date" {% if request.args.get('column') == 'sanctioned_date' %}selected{% endif %}>Sanctioned Date</option>
+          <option value="original_pdc" {% if request.args.get('column') == 'original_pdc' %}selected{% endif %}>Original PDC</option>
+          <option value="revised_pdc" {% if request.args.get('column') == 'revised_pdc' %}selected{% endif %}>Revised PDC</option>
+          <option value="administrative_status" {% if request.args.get('column') == 'administrative_status' %}selected{% endif %}>Administrative Status</option>
+          <option value="sanction_year" {% if request.args.get('column') == 'sanction_year' %}selected{% endif %}>Sanction Year</option>
+        </select>
+      </div>
+      <!-- Cost range inputs (hidden unless cost_lakhs is selected) -->
+      <div class="col-md-4" id="costRangeInputs" style="display:none;">
+        <div class="input-group">
+          <input type="number" step="any" name="cost_min" class="form-control" placeholder="Min Cost" value="{{ request.args.get('cost_min', '') }}">
+          <span class="input-group-text">to</span>
+          <input type="number" step="any" name="cost_max" class="form-control" placeholder="Max Cost" value="{{ request.args.get('cost_max', '') }}">
+        </div>
+      </div>
+      <!-- Default value input -->
+      <div class="col-md-4" id="valueInputWrapper">
+        <input type="text" name="value" id="filterValue" class="form-control" placeholder="Enter value" value="{{ request.args.get('value', '') }}">
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-primary w-100" type="submit">Filter</button>
+      </div>
+      <div class="col-md-2">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary w-100">Reset</a>
+      </div>
+    </form>
+    <script>
+      function updateInputType() {
+        const column = document.getElementById('columnSelect').value;
+        const valueInput = document.getElementById('filterValue');
+        const valueInputWrapper = document.getElementById('valueInputWrapper');
+        const costRangeInputs = document.getElementById('costRangeInputs');
+        if (column === 'cost_lakhs') {
+          valueInputWrapper.style.display = 'none';
+          costRangeInputs.style.display = '';
+        } else if (column === 'sanctioned_date' || column === 'original_pdc' || column === 'revised_pdc') {
+          valueInput.type = 'date';
+          valueInput.placeholder = '';
+          valueInputWrapper.style.display = '';
+          costRangeInputs.style.display = 'none';
+        } else {
+          valueInput.type = 'text';
+          valueInput.placeholder = 'Enter value';
+          valueInputWrapper.style.display = '';
+          costRangeInputs.style.display = 'none';
+        }
+      }
+      // Run on page load
+      updateInputType();
+    </script>
+  {% endif %}
+  
+  {% if current_user.role == 'viewer' %}
+    <div class="mb-4 d-flex flex-wrap gap-3">
+      <a href="{{ url_for('download_csv') }}" class="btn btn-secondary">Download CSV</a>
+      <a href="{{ url_for('download_pdf') }}" class="btn btn-secondary">Download PDF</a>
+    </div>
+
+    <!-- Filter/Search Form for viewers (optional, can remove if not needed) -->
+    <form method="get" action="{{ url_for('dashboard') }}" class="row g-3 mb-4 align-items-end">
+      <div class="col-md-4">
+        <select name="column" class="form-select" id="columnSelectViewer" onchange="updateInputTypeViewer()">
+          <option value="serial_no" {% if request.args.get('column') == 'serial_no' %}selected{% endif %}>Serial No</option>
+          <option value="title" {% if request.args.get('column') == 'title' %}selected{% endif %}>Nomenclature</option>
+          <option value="vertical" {% if request.args.get('column') == 'vertical' %}selected{% endif %}>Research Vertical</option>
+          <option value="academia" {% if request.args.get('column') == 'academia' %}selected{% endif %}>Academia/Institute</option>
+          <option value="pi_name" {% if request.args.get('column') == 'pi_name' %}selected{% endif %}>PI Name</option>
+          <option value="coord_lab" {% if request.args.get('column') == 'coord_lab' %}selected{% endif %}>Coordinating Lab</option>
+          <option value="scientist" {% if request.args.get('column') == 'scientist' %}selected{% endif %}>Coordinating Scientist</option>
+          <option value="cost_lakhs" {% if request.args.get('column') == 'cost_lakhs' %}selected{% endif %}>Cost (Lakhs)</option>
+          <option value="sanctioned_date" {% if request.args.get('column') == 'sanctioned_date' %}selected{% endif %}>Sanctioned Date</option>
+          <option value="original_pdc" {% if request.args.get('column') == 'original_pdc' %}selected{% endif %}>Original PDC</option>
+          <option value="revised_pdc" {% if request.args.get('column') == 'revised_pdc' %}selected{% endif %}>Revised PDC</option>
+          <option value="administrative_status" {% if request.args.get('column') == 'administrative_status' %}selected{% endif %}>Administrative Status</option>
+        </select>
+      </div>
+      <!-- Cost range inputs for viewer -->
+      <div class="col-md-4" id="costRangeInputsViewer" style="display:none;">
+        <div class="input-group">
+          <input type="number" step="any" name="cost_min" class="form-control" placeholder="Min Cost" value="{{ request.args.get('cost_min', '') }}">
+          <span class="input-group-text">to</span>
+          <input type="number" step="any" name="cost_max" class="form-control" placeholder="Max Cost" value="{{ request.args.get('cost_max', '') }}">
+        </div>
+      </div>
+      <div class="col-md-4" id="valueInputWrapperViewer">
+        <input type="text" name="value" id="filterValueViewer" class="form-control" placeholder="Enter value" value="{{ request.args.get('value', '') }}">
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-primary w-100" type="submit">Filter</button>
+      </div>
+      <div class="col-md-2">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary w-100">Reset</a>
+      </div>
+    </form>
+    <script>
+      function updateInputTypeViewer() {
+        const column = document.getElementById('columnSelectViewer').value;
+        const valueInput = document.getElementById('filterValueViewer');
+        const valueInputWrapper = document.getElementById('valueInputWrapperViewer');
+        const costRangeInputs = document.getElementById('costRangeInputsViewer');
+        if (column === 'cost_lakhs') {
+          valueInputWrapper.style.display = 'none';
+          costRangeInputs.style.display = '';
+        } else if (column === 'sanctioned_date' || column === 'original_pdc' || column === 'revised_pdc') {
+          valueInput.type = 'date';
+          valueInput.placeholder = '';
+          valueInputWrapper.style.display = '';
+          costRangeInputs.style.display = 'none';
+        } else {
+          valueInput.type = 'text';
+          valueInput.placeholder = 'Enter value';
+          valueInputWrapper.style.display = '';
+          costRangeInputs.style.display = 'none';
+        }
+      }
+      updateInputTypeViewer();
+    </script>
+  {% endif %}
+
+  <h4>All Projects</h4>
+  {% if projects %}
+    <div class="table-responsive">
+      <table class="table table-bordered table-striped">
+        <thead class="table-primary">
+          <tr>
+            <th>S. No.</th>
+            <th>Nomenclature</th>
+            <th>Academia/ Institute</th>
+            <th>PI Name</th>
+            <th>Coordinating Lab</th>
+            <th>Coordinating Lab Scientist</th>
+            <th>Research Vertical</th>
+            <th>Cost (in Lakhs)</th>
+            <th class="wide-col1">Sanctioned Date</th>
+            <th class="wide-col1">Original PDC</th>
+            <th class="wide-col1">Revised PDC</th>
+            <th class="wide-col1">Stake Holding Labs</th>
+            <th>Expected Deliverables/ Technology</th>
+            <th class="wide-col2">Outcome Dovetailing with Ongoing Work</th>
+            <th class="wide-col3">RAB Meeting Scheduled Date</th>
+            <th class="wide-col3">RAB Meeting Held Date</th>
+            <th class="wide-col4">RAB Minutes of Meeting</th>
+            <th class="wide-col3">GC Meeting Scheduled Date</th>
+            <th class="wide-col3">GC Meeting Held Date</th>
+            <th class="wide-col4">GC Minutes of Meeting</th>
+            <th class="wide-col5">Technical Status</th>
+            <th>Administrative Status</th>
+            {% if current_user.role == 'admin' %}
+              <th>Actions</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody id="projectTableBody">
+          {% include 'partials/project_table_body.html' %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p>No projects found.</p>
+  {% endif %}
+
+
+<script>
+    const searchInput = document.getElementById('searchInput');
+    const projectTableBody = document.getElementById('projectTableBody');
+
+    function bindInlineForms() {
+      // Technical Status
+      document.querySelectorAll('.technical_status-form').forEach(form => {
+        form.addEventListener('submit', function(e) {
+          e.preventDefault();
+          const projectId = this.dataset.projectId;
+          const technical_status = this.technical_status.value;
+          fetch(`/post_technical_status/${projectId}`, {
+            method: 'POST',
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+            body: new URLSearchParams({technical_status})
+          })
+          .then(res => res.json())
+          .then(data => {
+            if(data.success) {
+              alert('Technical Status updated!');
+            } else {
+              alert(data.message);
+            }
+          });
+        });
+      });
+
+      // RAB Meeting Scheduled Date
+      document.querySelectorAll('.rab_meeting_scheduled_date-form').forEach(form => {
+        form.addEventListener('submit', function(e) {
+          e.preventDefault();
+          const projectId = this.dataset.projectId;
+          const rab_meeting_date = this.rab_meeting_date.value;
+          fetch(`/post_rab_meeting_scheduled_date/${projectId}`, {
+            method: 'POST',
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+            body: new URLSearchParams({rab_meeting_date})
+          })
+          .then(res => res.json())
+          .then(data => {
+            if(data.success) {
+              alert('RAB Meeting Scheduled Date updated!');
+            } else {
+              alert(data.message);
+            }
+          });
+        });
+      });
+
+      // RAB Meeting Held Date
+      document.querySelectorAll('.rab_meeting_held_date-form').forEach(form => {
+        form.addEventListener('submit', function(e) {
+          e.preventDefault();
+          const projectId = this.dataset.projectId;
+          const rab_meeting_held_date = this.rab_meeting_held_date.value;
+          fetch(`/post_rab_meeting_held_date/${projectId}`, {
+            method: 'POST',
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+            body: new URLSearchParams({rab_meeting_held_date})
+          })
+          .then(res => res.json())
+          .then(data => {
+            if(data.success) {
+              alert('RAB Meeting Held Date updated!');
+            } else {
+              alert(data.message);
+            }
+          });
+        });
+      });
+
+      // RAB Minutes of Meeting
+      document.querySelectorAll('.rab_minutes_of_meeting-form').forEach(form => {
+        form.addEventListener('submit', function(e) {
+          e.preventDefault();
+          const projectId = this.dataset.projectId;
+          const rab_minutes = this.rab_minutes.value;
+          fetch(`/post_rab_minutes_of_meeting/${projectId}`, {
+            method: 'POST',
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+            body: new URLSearchParams({rab_minutes})
+          })
+          .then(res => res.json())
+          .then(data => {
+            if(data.success) {
+              alert('RAB Minutes of Meeting updated!');
+            } else {
+              alert(data.message);
+            }
+          });
+        });
+      });
+
+      // GC Meeting Scheduled Date
+      document.querySelectorAll('.gc_meeting_scheduled_date-form').forEach(form => {
+        form.addEventListener('submit', function(e) {
+          e.preventDefault();
+          const projectId = this.dataset.projectId;
+          const gc_meeting_date = this.gc_meeting_date.value;
+          fetch(`/post_gc_meeting_scheduled_date/${projectId}`, {
+            method: 'POST',
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+            body: new URLSearchParams({gc_meeting_date})
+          })
+          .then(res => res.json())
+          .then(data => {
+            if(data.success) {
+              alert('GC Meeting Scheduled Date updated!');
+            } else {
+              alert(data.message);
+            }
+          });
+        });
+      });
+
+      // GC Meeting Held Date
+      document.querySelectorAll('.gc_meeting_held_date-form').forEach(form => {
+        form.addEventListener('submit', function(e) {
+          e.preventDefault();
+          const projectId = this.dataset.projectId;
+          const gc_meeting_held_date = this.gc_meeting_held_date.value;
+          fetch(`/post_gc_meeting_held_date/${projectId}`, {
+            method: 'POST',
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+            body: new URLSearchParams({gc_meeting_held_date})
+          })
+          .then(res => res.json())
+          .then(data => {
+            if(data.success) {
+              alert('GC Meeting Held Date updated!');
+            } else {
+              alert(data.message);
+            }
+          });
+        });
+      });
+
+      // GC Minutes of Meeting
+      document.querySelectorAll('.gc_minutes_of_meeting-form').forEach(form => {
+        form.addEventListener('submit', function(e) {
+          e.preventDefault();
+          const projectId = this.dataset.projectId;
+          const gc_minutes = this.gc_minutes.value;
+          fetch(`/post_gc_minutes_of_meeting/${projectId}`, {
+            method: 'POST',
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+            body: new URLSearchParams({gc_minutes})
+          })
+          .then(res => res.json())
+          .then(data => {
+            if(data.success) {
+              alert('GC Minutes of Meeting updated!');
+            } else {
+              alert(data.message);
+            }
+          });
+        });
+      });
+    }
+
+    // Initial binding
+    bindInlineForms();
+
+    // Re-bind after AJAX search
+    if (searchInput) {
+      searchInput.addEventListener('input', function() {
+        const query = this.value;
+        fetch(`/ajax_search_projects?query=${encodeURIComponent(query)}`)
+          .then(response => response.text())
+          .then(html => {
+            projectTableBody.innerHTML = html;
+            bindInlineForms();
+          })
+          .catch(err => console.error('Search error:', err));
+      });
+    }
+</script>
+
+{% endblock %}

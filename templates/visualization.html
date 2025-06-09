@@ -1,0 +1,294 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<h2 class="text-center mb-4" style="color:#052155; font-weight:700;">Data Analytics</h2>
+
+<style>
+  .chart-row {
+    display: flex;
+    gap: 40px;
+    margin-bottom: 40px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .chart-box {
+    background: #f8fbff;
+    border: 1.5px solid #b6c6e3;
+    border-radius: 18px;
+    box-shadow: 0 4px 24px rgba(2, 33, 85, 0.08);
+    padding: 32px 24px 24px 24px;
+    width: 540px;
+    min-width: 320px;
+    min-height: 520px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0;
+    transition: box-shadow 0.2s;
+  }
+  .chart-box:hover {
+    box-shadow: 0 8px 32px rgba(2, 33, 85, 0.16);
+    border-color: #052155;
+  }
+  .chart-box strong, .chart-box select {
+    font-size: 1.15rem;
+    color: #052155;
+    margin-bottom: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .chart-box select {
+    border-radius: 6px;
+    border: 1px solid #b6c6e3;
+    padding: 2px 8px;
+    margin-left: 6px;
+    font-size: 1rem;
+    color: #052155;
+    background: #f8fbff;
+  }
+  .chart-box canvas {
+    max-width: 470px !important;
+    max-height: 340px !important;
+    margin-top: 10px;
+  }
+  @media (max-width: 1200px) {
+    .chart-row {
+      flex-direction: column;
+      gap: 32px;
+      align-items: center;
+    }
+    .chart-box {
+      width: 98vw;
+      max-width: 98vw;
+      min-width: unset;
+    }
+    .chart-box canvas {
+      max-width: 100% !important;
+      height: auto !important;
+    }
+  }
+</style>
+
+<div class="chart-row">
+  <div class="chart-box">
+    <strong>Administrative Status</strong>
+    <canvas id="adminStatusPie"></canvas>
+  </div>
+  <div class="chart-box">
+    <strong>Projects Sanctioned Per Year</strong>
+    <canvas id="sanctionBarChart"></canvas>
+  </div>
+</div>
+<div class="chart-row">
+  <div class="chart-box">
+    <strong>Projects per Research Vertical</strong>
+    <canvas id="donutChartVertical"></canvas>
+  </div>
+  <div class="chart-box">
+    <strong>Verticals per Institute</strong>
+    <canvas id="donutChartInstitute"></canvas>
+  </div>
+</div>
+<div class="chart-row">
+  <div class="chart-box">
+    <strong>Cost vs Institute</strong>
+    <canvas id="costVsInstitute"></canvas>
+  </div>
+  <div class="chart-box">
+    <strong>Cost vs Research Vertical</strong>
+    <canvas id="costVsVertical"></canvas>
+  </div>
+</div>
+<div class="chart-row">
+  <div class="chart-box">
+    <strong>Monthly Sanctions by Vertical</strong>
+    <canvas id="monthlyStackedBar"></canvas>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.3/dist/chart.umd.js"></script>
+
+
+<script>
+  // Define a single color palette for all charts
+const mainColors = [
+  "#b93495", // magenta
+  "#8e24aa", // purple
+  "#5e35b1", // blue-purple
+  "#3949ab", // blue
+  "#1976d2", // blue
+  "#1565c0", // blue
+  "#0d47a1", // navy
+  "#01579b", // deep blue
+  "#003366", // deep blue
+  "#c25b92", // soft magenta (replaces strong pink)
+  "#B93495", // rose pink (replaces pink)
+  "#ba68c8", // purple
+  "#7e57c2", // purple
+  "#64b5f6"  // light blue
+];
+  
+  const adminStatusData = {
+    labels: {{ admin_status_counts.keys() | list | tojson }},
+    datasets: [{
+      data: {{ admin_status_counts.values() | list | tojson }},
+      backgroundColor: mainColors,
+    }]
+  };
+  new Chart(document.getElementById('adminStatusPie'), {
+    type: 'pie',
+    data: adminStatusData,
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 24, font: { size: 14 }, color: '#000000', padding: 18 } } }
+    }
+  });
+
+  // Bar Chart: Projects Sanctioned Per Year
+  const barChartData = {
+    labels: {{ year_labels | default([]) | tojson }},
+    datasets: [{
+      label: 'Projects Sanctioned',
+      data: {{ year_values | default([]) | tojson }},
+      backgroundColor: mainColors,
+    }]
+  };
+  new Chart(document.getElementById('sanctionBarChart'), {
+    type: 'bar',
+    data: barChartData,
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { precision:0 } } }
+    }
+  });
+
+  // Donut Chart: Projects per Research Vertical
+  const verticalLabels = {{ vertical_counts.keys() | default([]) | list | tojson }};
+  const verticalData = {{ vertical_counts.values() | default([]) | list | tojson }};
+  new Chart(document.getElementById('donutChartVertical'), {
+    type: 'doughnut',
+    data: {
+      labels: verticalLabels,
+      datasets: [{
+        data: verticalData,
+        backgroundColor: mainColors,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '60%',
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 24, font: { size: 12 }, color: '#000000', padding: 16 } } }
+    }
+  });
+
+  // Donut Chart: Verticals per Institute
+  const instituteLabels = {{ institute_vertical_counts.keys() | default([]) | list | tojson }};
+  const instituteData = {{ institute_vertical_counts.values() | default([]) | list | tojson }};
+  new Chart(document.getElementById('donutChartInstitute'), {
+    type: 'doughnut',
+    data: {
+      labels: instituteLabels,
+      datasets: [{
+        data: instituteData,
+        backgroundColor: mainColors,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '60%',
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 30, font: { size: 14 }, color: '#000000', padding: 17 } } }
+    }
+  });
+
+  // Cost vs Institute Histogram
+  const costInstituteLabels = {{ cost_institute_labels | default([]) | tojson }};
+  const costInstituteValues = {{ cost_institute_values | default([]) | tojson }};
+  new Chart(document.getElementById('costVsInstitute'), {
+    type: 'bar',
+    data: {
+      labels: costInstituteLabels,
+      datasets: [{
+        label: 'Total Cost (Lakhs)',
+        data: costInstituteValues,
+        backgroundColor: mainColors,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { title: { display: true, text: 'Institute' }, ticks: { autoSkip: false, maxRotation: 50, minRotation: 40 } },
+        y: { beginAtZero: true, title: { display: true, text: 'Cost (Lakhs)' } }
+      }
+    }
+  });
+
+  // Cost vs Research Vertical Histogram
+  const costVerticalLabels = {{ cost_vertical_labels | default([]) | tojson }};
+  const costVerticalValues = {{ cost_vertical_values | default([]) | tojson }};
+  new Chart(document.getElementById('costVsVertical'), {
+    type: 'bar',
+    data: {
+      labels: costVerticalLabels,
+      datasets: [{
+        label: 'Total Cost (Lakhs)',
+        data: costVerticalValues,
+        backgroundColor: mainColors,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { title: { display: true, text: 'Research Vertical' }, ticks: { autoSkip: false, maxRotation: 60, minRotation: 30 } },
+        y: { beginAtZero: true, title: { display: true, text: 'Cost (Lakhs)' } }
+      }
+    }
+  });
+
+  // Monthly Sanctions by Vertical (Stacked Bar)
+  const stackedLabels = {{ stacked_labels | default([]) | tojson }};
+  const stackedDataRaw = {{ stacked_data | default([]) | tojson }};
+  const stackedDatasets = stackedDataRaw.map((v, i) => ({
+    label: v.label,
+    data: v.data,
+    backgroundColor: mainColors[i % mainColors.length]
+  }));
+
+  new Chart(document.getElementById('monthlyStackedBar'), {
+    type: 'bar',
+    data: {
+      labels: stackedLabels,
+      datasets: stackedDatasets
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            boxWidth: 24,
+            font: { size: 14 },
+            color: '#000000',
+            padding: 18
+          }
+        }
+      },
+      scales: {
+        x: { stacked: true, title: { display: true, text: 'Month' } },
+        y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Project Count' } }
+      }
+    }
+  });
+</script>
+
+{% endblock %}

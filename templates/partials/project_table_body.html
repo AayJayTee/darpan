@@ -1,0 +1,159 @@
+{% for project in projects %}
+  <tr>
+    <td>{{ project.serial_no }}</td>
+    <td>{{ project.title }}</td>
+    <td>{{ project.academia }}</td>
+    <td>{{ project.pi_name }}</td>
+    <td>{{ project.coord_lab }}</td>
+    <td>{{ project.scientist }}</td>
+    <td>{{ project.vertical }}</td>
+    <td>{{ project.cost_lakhs }}</td>
+    <td>{{ project.sanctioned_date }}</td>
+    <td>{{ project.original_pdc }}</td>
+    <td>{{ project.revised_pdc }}</td>
+    <td>{{ project.stakeholders }}</td>
+    <td>{{ project.expected_deliverables }}</td>
+    <td>{{ project.Outcome_Dovetailing_with_Ongoing_Work }}</td>
+
+    <!-- RAB Meeting Scheduled Date -->
+    <td>
+      <div style="max-height:80px; overflow:auto; font-size:0.95em;">
+        {% if project.rab_meeting_date %}
+          {% for rec in project.rab_meeting_date.split('\n') %}
+            <div class="mb-1 text-secondary" style="white-space:pre-line;">{{ rec }}</div>
+          {% endfor %}
+        {% else %}
+          <span class="text-muted">No Meeting Scheduled yet.</span>
+        {% endif %}
+      </div>
+      {% if current_user.role == 'admin' %}
+        <form class="rab_meeting_scheduled_date-form mt-1" data-project-id="{{ project.id }}">
+          <input type="date" name="rab_meeting_date" class="form-control form-control-sm" placeholder="Add new update">
+          <button type="submit" class="btn btn-sm btn-primary mt-1">Post</button>
+        </form>
+      {% endif %}
+    </td>
+
+    <!-- RAB Meeting Held Date -->
+    <td>
+      <div style="max-height:80px; overflow:auto; font-size:0.95em;">
+        {% if project.rab_meeting_held_date %}
+          {% for rec in project.rab_meeting_held_date.split('\n') %}
+            <div class="mb-1 text-secondary" style="white-space:pre-line;">{{ rec }}</div>
+          {% endfor %}
+        {% else %}
+          <span class="text-muted">No RAB Meeting Held yet.</span>
+        {% endif %}
+      </div>
+      {% if current_user.role == 'admin' %}
+        <form class="rab_meeting_held_date-form mt-1" data-project-id="{{ project.id }}">
+          <input type="date" name="rab_meeting_held_date" class="form-control form-control-sm" placeholder="Add new update">
+          <button type="submit" class="btn btn-sm btn-primary mt-1">Post</button>
+        </form>
+      {% endif %}
+    </td>
+    
+    <!-- RAB Minutes of Meeting -->
+    <td>
+      <div style="max-height:80px; overflow:auto; font-size:0.95em;">
+        {% if project.rab_minutes %}
+          {% for rec in project.rab_minutes.split('\n') %}
+            <div class="mb-1 text-secondary" style="white-space:pre-line;">{{ rec }}</div>
+          {% endfor %}
+        {% else %}
+          <span class="text-muted">No RAB MoM yet.</span>
+        {% endif %}
+      </div>
+      {% if current_user.role == 'admin' %}
+        <form class="rab_minutes_of_meeting-form mt-1" data-project-id="{{ project.id }}">
+          <input type="text" name="rab_minutes" class="form-control form-control-sm" placeholder="Add new update">
+          <button type="submit" class="btn btn-sm btn-primary mt-1">Post</button>
+        </form>
+      {% endif %}
+    </td>
+
+    <!-- GC Meeting Scheduled Date -->
+    <td>
+      <div style="max-height:80px; overflow:auto; font-size:0.95em;">
+        {% if project.gc_meeting_date %}
+          {% for rec in project.gc_meeting_date.split('\n') %}
+            <div class="mb-1 text-secondary" style="white-space:pre-line;">{{ rec }}</div>
+          {% endfor %}
+        {% else %}
+          <span class="text-muted">No Meeting Scheduled yet.</span>
+        {% endif %}
+      </div>
+      {% if current_user.role == 'admin' %}
+        <form class="gc_meeting_scheduled_date-form mt-1" data-project-id="{{ project.id }}">
+          <input type="date" name="gc_meeting_date" class="form-control form-control-sm" placeholder="Add new update">
+          <button type="submit" class="btn btn-sm btn-primary mt-1">Post</button>
+        </form>
+      {% endif %}
+    </td>
+
+    <!-- GC Meeting Held Date -->
+    <td>
+      <div style="max-height:80px; overflow:auto; font-size:0.95em;">
+        {% if project.gc_meeting_held_date %}
+          {% for rec in project.gc_meeting_held_date.split('\n') %}
+            <div class="mb-1 text-secondary" style="white-space:pre-line;">{{ rec }}</div>
+          {% endfor %}
+        {% else %}
+          <span class="text-muted">No GC Meeting Held yet.</span>
+        {% endif %}
+      </div>
+      {% if current_user.role == 'admin' %}
+        <form class="gc_meeting_held_date-form mt-1" data-project-id="{{ project.id }}">
+          <input type="date" name="gc_meeting_held_date" class="form-control form-control-sm" placeholder="Add new update">
+          <button type="submit" class="btn btn-sm btn-primary mt-1">Post</button>
+        </form>
+      {% endif %}
+    </td>
+
+    <!-- GC Minutes of Meeting -->
+    <td>
+      <div style="max-height:80px; overflow:auto; font-size:0.95em;">
+        {% if project.gc_minutes %}
+          {% for rec in project.gc_minutes.split('\n') %}
+            <div class="mb-1 text-secondary" style="white-space:pre-line;">{{ rec }}</div>
+          {% endfor %}
+        {% else %}
+          <span class="text-muted">No GC MoM yet.</span>
+        {% endif %}
+      </div>
+      {% if current_user.role == 'admin' %}
+        <form class="gc_minutes_of_meeting-form mt-1" data-project-id="{{ project.id }}">
+          <input type="text" name="gc_minutes" class="form-control form-control-sm" placeholder="Add new update">
+          <button type="submit" class="btn btn-sm btn-primary mt-1">Post</button>
+        </form>
+      {% endif %}
+    </td>
+
+    <!-- Technical Status -->
+    <td>
+      <div style="max-height:80px; overflow:auto; font-size:0.95em;">
+        {% if project.technical_status %}
+          {% for rec in project.technical_status.split('\n') %}
+            <div class="mb-1 text-secondary" style="white-space:pre-line;">{{ rec }}</div>
+          {% endfor %}
+        {% else %}
+          <span class="text-muted">Status not yet set.</span>
+        {% endif %}
+      </div>
+      {% if current_user.role == 'admin' %}
+        <form class="technical_status-form mt-1" data-project-id="{{ project.id }}">
+          <input type="text" name="technical_status" class="form-control form-control-sm" placeholder="Add new update">
+          <button type="submit" class="btn btn-sm btn-primary mt-1">Post</button>
+        </form>
+      {% endif %}
+    </td>
+    <td>{{ project.administrative_status }}</td> 
+    {% if current_user.role == 'admin' %}
+      <td>
+        <a href="{{ url_for('edit_project', project_id=project.id) }}" class="btn btn-sm btn-warning">Edit</a>
+      </td>
+    {% endif %}
+  </tr>
+{% else %}
+  <tr><td colspan="14">No projects found.</td></tr>
+{% endfor %}

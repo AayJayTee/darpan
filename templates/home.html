@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block title %}Home - DRDO DARPAN Portal{% endblock %}
+
+{% block content %}
+<div class="container d-flex flex-column justify-content-center align-items-center" style="min-height: 80vh;">
+    <div class="row justify-content-center w-100">
+        <div class="col-lg-10">
+            <div class="card shadow-sm p-4 mb-4 bg-white rounded">
+                <div class="text-center mb-4">
+                    <h1 class="mt-2 mb-1" style="color: #052155; font-weight: 700;">DRDO Industry Academia Centres of Excellence (DIA-CoEs)</h1>
+                    <p class="text-muted mb-0" style="font-size: 1.1rem;">Empowering Innovation through Collaboration</p>
+                </div>
+                <hr>
+                <div class="mb-4">
+                    <h4 class="mb-2" style="color: #0f2d64;">About DRDO DARPAN Portal</h4>
+                    <p style="text-align: justify;">
+                        <strong>DRDO DARPAN Portal</strong> is a unified digital platform designed to streamline and manage research projects under the DRDO Industry Academia Centres of Excellence (DIA-CoEs). The portal enables seamless collaboration between DRDO laboratories, academic institutions, and industry partners, fostering innovation and accelerating the development of advanced defence technologies.
+                    </p>
+                    <p style="text-align: justify;">
+                        Through DARPAN, users can securely access project databases, monitor progress, and visualize key analytics, ensuring transparency and efficiency in research management. The portal supports the mission of DRDO to build a robust, directed research ecosystem and drive multi-disciplinary, multi-institutional efforts in futuristic defence domains.
+                    </p>
+                </div>
+                <div class="mb-4">
+                    <h4 class="mb-2" style="color: #0f2d64;">About DIA-CoEs</h4>
+                    <ul style="text-align: justify; padding-left: 1.2rem;">
+                        <li>DRDO establishes DIA-CoEs at premier academic institutes and universities across India to build a directed research ecosystem through collaboration among DRDO labs, academia, and startups/industries.</li>
+                        <li>DIA-CoEs pursue research in developing cutting-edge and denied defence technologies.</li>
+                        <li>The primary aim is to harness and synergize the combined strength of academia, students, research fellows, niche technology industries, and DRDO scientists to drive research and innovation in futuristic defence domains.</li>
+                        <li>These Centres of Excellence boost and sustain the development of advanced technologies for future defence systems and platforms through multi-disciplinary and multi-institutional collaborative efforts.</li>
+                        <li><strong>DRDO has established 15 DIA-CoEs so far.</strong></li>
+                    </ul>
+                </div>
+                <div class="text-center">
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-lg m-2" style="background-color: #1e3c72; color: #fff; border: none;">Go to Database</a>
+                    <a href="{{ url_for('visualization') }}" class="btn btn-lg m-2" style="background-color: #1e3c72; color: #ffffff; border: none;">Go to Data Analytics</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

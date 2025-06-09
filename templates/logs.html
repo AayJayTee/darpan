@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Logs - Research Projects{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">User Activity Logs</h2>
+
+{% if logs %}
+<table class="table table-striped table-hover">
+  <thead class="table-secondary">
+    <tr>
+      <th>Timestamp</th>
+      <th>User</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for log in logs %}
+    <tr>
+      <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+      <td>{{ log.user.username }}</td>
+      <td>{{ log.action }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No logs to show.</p>
+{% endif %}
+{% endblock %}
