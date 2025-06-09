@@ -5,6 +5,6 @@ Flask-SQLAlchemy==3.0.3
 Werkzeug==2.3.7
 PyMySQL==1.0.3
 pytz==2023.3
-reportlab
-Flask-Migrate
-gunicorn
+reportlab==4.4.1
+Flask-Migrate==4.1.0
+gunicorn==21.2.0
