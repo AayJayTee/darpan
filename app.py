@@ -706,15 +706,15 @@ def logout():
     flash("You have been logged out.", "info")
     return redirect(url_for('login'))
 
-if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-        #initialize default users
-        if not User.query.filter_by(username='admin').first():
-            admin_user = User(username='admin', password=generate_password_hash('admin123'), role='admin')
-            viewer_user = User(username='viewer', password=generate_password_hash('viewer123'), role='viewer')
-            db.session.add(admin_user)
-            db.session.add(viewer_user)
-            db.session.commit()
+# Auto-create tables and seed default users
+with app.app_context():
+    db.create_all()
+    if not User.query.filter_by(username='admin').first():
+        admin_user = User(username='admin', password=generate_password_hash('admin123'), role='admin')
+        viewer_user = User(username='viewer', password=generate_password_hash('viewer123'), role='viewer')
+        db.session.add_all([admin_user, viewer_user])
+        db.session.commit()
 
+# Only runs locally, not on Render
+if __name__ == '__main__':
     app.run(debug=True)
