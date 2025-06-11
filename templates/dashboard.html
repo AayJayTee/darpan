@@ -8,41 +8,44 @@
       white-space: pre-wrap;
       word-wrap: break-word;
     }
-  </style>
-
-  <style>
     .wide-col2 {
       min-width: 150px;
       max-width: 400px;
       white-space: pre-wrap;
       word-wrap: break-word;
     }
-  </style>
-
-  <style>
     .wide-col3 {
       min-width: 200px;
       max-width: 400px;
       white-space: pre-wrap;
       word-wrap: break-word;
     }
-  </style>
-
-  <style>
     .wide-col4 {
       min-width: 140px;
       max-width: 400px;
       white-space: pre-wrap;
       word-wrap: break-word;
     }
-  </style>
-
-  <style>
     .wide-col5 {
       min-width: 140px;
       max-width: 400px;
       white-space: pre-wrap;
       word-wrap: break-word;
+    }
+    /* Freeze the table header row */
+    .table thead th {
+      position: sticky;
+      top: 0;
+      background: #e3f2fd;
+      z-index: 2;
+    }
+    .table {
+    margin-bottom: 0;
+    }
+    .table-responsive {
+      max-height: 90vh;
+      overflow-y: auto;
+      margin-bottom: 40px;
     }
   </style>
 
@@ -56,7 +59,6 @@
       </ul>
     </div>
   {% endif %}
-
 
   <h2 class="mb-4">DIA-CoE Projects DARPAN</h2>
 
@@ -219,6 +221,7 @@
             <th class="wide-col1">Original PDC</th>
             <th class="wide-col1">Revised PDC</th>
             <th class="wide-col1">Stake Holding Labs</th>
+            <th class="wide-col1">Scope/Objective of the Project</th>
             <th>Expected Deliverables/ Technology</th>
             <th class="wide-col2">Outcome Dovetailing with Ongoing Work</th>
             <th class="wide-col3">RAB Meeting Scheduled Date</th>
@@ -229,6 +232,7 @@
             <th class="wide-col4">GC Minutes of Meeting</th>
             <th class="wide-col5">Technical Status</th>
             <th>Administrative Status</th>
+            <th class="wide-col1">Final Closure Status</th>
             {% if current_user.role == 'admin' %}
               <th>Actions</th>
             {% endif %}
@@ -242,7 +246,6 @@
   {% else %}
     <p>No projects found.</p>
   {% endif %}
-
 
 <script>
     const searchInput = document.getElementById('searchInput');
@@ -420,6 +423,6 @@
           .catch(err => console.error('Search error:', err));
       });
     }
-</script>
+  </script>
 
 {% endblock %}

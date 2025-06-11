@@ -103,6 +103,14 @@
             {% endfor %}
         </div>
 
+        <div class="mb-3">
+            {{ form.scope_objective.label(class="form-label") }}
+            {{ form.scope_objective(class="form-control") }}
+            {% for error in form.scope_objective.errors %}
+                <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+        </div>
+
         <div class="form-group">
             {{ form.expected_deliverables.label(class="form-label") }}
             {{ form.expected_deliverables(class="form-control") }}
@@ -182,7 +190,27 @@
                 <div class="text-danger small">{{ error }}</div>
             {% endfor %}
         </div>
-
+        
+        <div class="mb-3">
+            <label class="form-label">Final Closure Status</label>
+            <div class="row">
+                <div class="col-md-6">
+                    {{ form.final_closure_date.label(class="form-label") }}
+                    {{ form.final_closure_date(class="form-control") }}
+                    {% for error in form.final_closure_date.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                <div class="col-md-6">
+                    {{ form.final_closure_remarks.label(class="form-label") }}
+                    {{ form.final_closure_remarks(class="form-control") }}
+                    {% for error in form.final_closure_remarks.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
         <button type="submit" class="btn btn-primary mt-3">Update Project</button>
         <a href="{{ url_for('dashboard') }}" class="btn btn-secondary mt-3">Cancel</a>
     </form>

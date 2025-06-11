@@ -103,7 +103,15 @@
     {% endfor %}
   </div>
 
-    <div class="mb-3">
+ <div class="mb-3">
+  {{ form.scope_objective.label(class="form-label") }}
+  {{ form.scope_objective(class="form-control") }}
+  {% for error in form.scope_objective.errors %}
+    <div class="text-danger small">{{ error }}</div>
+  {% endfor %}
+ </div>
+
+  <div class="mb-3">
     {{ form.expected_deliverables.label(class="form-label") }}
     {{ form.expected_deliverables(class="form-control") }}
     {% for error in form.expected_deliverables.errors %}
@@ -253,7 +261,28 @@
     {% endfor %}
   </div>
 
-  {{ form.submit(class="btn btn-success") }}
-  <a href="{{ url_for('dashboard') }}" class="btn btn-secondary ms-2">Cancel</a>
+  <div class="mb-3">
+    <label class="form-label">Final Closure Status</label>
+    <div class="row">
+      <div class="col-md-6">
+        {{ form.final_closure_date.label(class="form-label") }}
+        {{ form.final_closure_date(class="form-control") }}
+        {% for error in form.final_closure_date.errors %}
+          <div class="text-danger small">{{ error }}</div>
+        {% endfor %}
+      </div>
+      <div class="col-md-6">
+        {{ form.final_closure_remarks.label(class="form-label") }}
+        {{ form.final_closure_remarks(class="form-control") }}
+        {% for error in form.final_closure_remarks.errors %}
+          <div class="text-danger small">{{ error }}</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  
+  {{ form.submit(class="btn btn-success mb-4") }}
+  <a href="{{ url_for('dashboard') }}" class="btn btn-secondary ms-2 mb-4">Back to Database</a>
+
 </form>
 {% endblock %}

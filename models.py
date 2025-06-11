@@ -36,6 +36,7 @@ class Project(db.Model):
     original_pdc = db.Column(db.Date)
     revised_pdc = db.Column(db.Date)
     stakeholders = db.Column(db.String(200))
+    scope_objective = db.Column(db.Text, nullable=True)
     expected_deliverables = db.Column(db.String(300))
     Outcome_Dovetailing_with_Ongoing_Work=db.Column(db.Text,nullable = True)
     rab_meeting_date = db.Column(db.Text, nullable = True)   
@@ -46,6 +47,8 @@ class Project(db.Model):
     gc_minutes = db.Column(db.Text, nullable = True)
     technical_status = db.Column(db.Text, nullable = True)
     administrative_status = db.Column(db.String(50), nullable = False, default = "Ongoing")
+    final_closure_date = db.Column(db.Date, nullable=True)
+    final_closure_remarks = db.Column(db.Text, nullable=True)
 
     #constraint
     __table_args__ = (

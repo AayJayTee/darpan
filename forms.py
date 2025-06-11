@@ -1,7 +1,7 @@
 #importing necessary libraries
 from flask_wtf import FlaskForm
 from wtforms import IntegerField, StringField, PasswordField, SubmitField, FloatField, DateField, SelectField, TextAreaField
-from wtforms.validators import DataRequired, Length, ValidationError
+from wtforms.validators import DataRequired, Length, ValidationError, Optional
 
 # This file is part of the Project Management System.
 # LoginForm is used for user authentication on the login page
@@ -26,6 +26,7 @@ class ProjectForm(FlaskForm):
     original_pdc = DateField('Original PDC')
     revised_pdc = DateField('Revised PDC')
     stakeholders = StringField('Stakeholding Labs')
+    scope_objective = TextAreaField('Scope/Objective of Project')
     expected_deliverables = StringField('Expected Deliverables/ Technologies')
     Outcome_Dovetailing_with_Ongoing_Work=TextAreaField('Outcome Dovetailing with Ongoing Work')
     rab_meeting_date = TextAreaField('RAB Meeting Scheduled Date')
@@ -36,6 +37,8 @@ class ProjectForm(FlaskForm):
     gc_minutes = TextAreaField('GC Minutes of Meeting')
     technical_status = TextAreaField('Technical Status')
     administrative_status = SelectField('Administrative Status', choices=[('ongoing', 'Ongoing'), ('completed', 'Completed'), ('pending', 'Pending')], validators=[DataRequired()])
+    final_closure_date = DateField('Final Closure Date', format='%Y-%m-%d', validators=[Optional()])
+    final_closure_remarks = TextAreaField('Final Closure Remarks', validators=[Optional()])
     submit = SubmitField('Submit')
     
     def validate_original_pdc(self, field):

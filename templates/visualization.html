@@ -106,6 +106,20 @@
     <canvas id="monthlyStackedBar"></canvas>
   </div>
 </div>
+<div class="chart-row">
+  <div class="chart-box">
+    <strong>Project Status per Quarter</strong>
+    <canvas id="statusQuarterChart"></canvas>
+  </div>
+  <div class="chart-box">
+    <strong>Project Status per Half-Year</strong>
+    <canvas id="statusHalfChart"></canvas>
+  </div>
+  <div class="chart-box">
+    <strong>Project Status per Year</strong>
+    <canvas id="statusYearChart"></canvas>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.3/dist/chart.umd.js"></script>
 
@@ -287,6 +301,96 @@ const mainColors = [
         x: { stacked: true, title: { display: true, text: 'Month' } },
         y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Project Count' } }
       }
+    }
+  });
+
+  // Quarterly
+  new Chart(document.getElementById('statusQuarterChart'), {
+    type: 'bar',
+    data: {
+      labels: {{ quarter_labels|tojson }},
+      datasets: [
+        {
+          label: 'Running',
+          data: {{ quarter_data['Running']|tojson }},
+          backgroundColor: '#1976d2'
+        },
+        {
+          label: 'Closed',
+          data: {{ quarter_data['Closed']|tojson }},
+          backgroundColor: '#43a047'
+        },
+        {
+          label: 'Open',
+          data: {{ quarter_data['Open']|tojson }},
+          backgroundColor: '#fbc02d'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'bottom' } },
+      scales: { x: { stacked: true }, y: { beginAtZero: true, stacked: true } }
+    }
+  });
+
+  // Half-Yearly
+  new Chart(document.getElementById('statusHalfChart'), {
+    type: 'bar',
+    data: {
+      labels: {{ half_labels|tojson }},
+      datasets: [
+        {
+          label: 'Running',
+          data: {{ half_data['Running']|tojson }},
+          backgroundColor: '#1976d2'
+        },
+        {
+          label: 'Closed',
+          data: {{ half_data['Closed']|tojson }},
+          backgroundColor: '#43a047'
+        },
+        {
+          label: 'Open',
+          data: {{ half_data['Open']|tojson }},
+          backgroundColor: '#fbc02d'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'bottom' } },
+      scales: { x: { stacked: true }, y: { beginAtZero: true, stacked: true } }
+    }
+  });
+
+  // Yearly
+  new Chart(document.getElementById('statusYearChart'), {
+    type: 'bar',
+    data: {
+      labels: {{ year_labels_status|tojson }},
+      datasets: [
+        {
+          label: 'Running',
+          data: {{ year_data_status['Running']|tojson }},
+          backgroundColor: '#1976d2'
+        },
+        {
+          label: 'Closed',
+          data: {{ year_data_status['Closed']|tojson }},
+          backgroundColor: '#43a047'
+        },
+        {
+          label: 'Open',
+          data: {{ year_data_status['Open']|tojson }},
+          backgroundColor: '#fbc02d'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'bottom' } },
+      scales: { x: { stacked: true }, y: { beginAtZero: true, stacked: true } }
     }
   });
 </script>

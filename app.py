@@ -142,8 +142,6 @@ def dashboard():
         if p.revised_pdc and today <= p.revised_pdc <= soon and (not p.administrative_status or p.administrative_status.lower() != "completed")
     ]
 
-    
-
     return render_template(
         'dashboard.html',
         projects=projects,
@@ -215,8 +213,6 @@ def visualization():
     cost_vertical_labels = list(cost_vs_vertical.keys())
     cost_vertical_values = [cost_vs_vertical[k] for k in cost_vertical_labels]
 
-
-
     # Monthly Sanctions by Vertical (Stacked Bar)
     monthly_vertical_counts = defaultdict(lambda: defaultdict(int))
     all_verticals = set()
@@ -234,6 +230,55 @@ def visualization():
         data = [monthly_vertical_counts[month].get(vertical, 0) for month in stacked_labels]
         stacked_data.append({'label': vertical, 'data': data})
 
+    # --- Quarterly, Half-Yearly, Yearly Status Counts ---
+
+    def get_period(date, period_type):
+        if not date:
+            return None
+        if period_type == 'quarter':
+            return f"{date.year} Q{((date.month-1)//3)+1}"
+        elif period_type == 'half':
+            return f"{date.year} H{1 if date.month <= 6 else 2}"
+        elif period_type == 'year':
+            return str(date.year)
+
+    status_period_counts = {
+        'quarter': defaultdict(lambda: {'Running':0, 'Closed':0, 'Open':0}),
+        'half': defaultdict(lambda: {'Running':0, 'Closed':0, 'Open':0}),
+        'year': defaultdict(lambda: {'Running':0, 'Closed':0, 'Open':0}),
+    }
+
+    for p in projects:
+        status = (p.administrative_status or '').capitalize()
+        if status not in ['Running', 'Closed', 'Open']:
+            continue
+        for period_type in ['quarter', 'half', 'year']:
+            period = get_period(p.sanctioned_date, period_type)
+            if period:
+                status_period_counts[period_type][period][status] += 1
+
+    # Sort periods for each type
+    quarter_labels = sorted(status_period_counts['quarter'].keys())
+    half_labels = sorted(status_period_counts['half'].keys())
+    year_labels_status = sorted(status_period_counts['year'].keys())
+
+    # Prepare data for Chart.js
+    quarter_data = {
+        'Running': [status_period_counts['quarter'][q]['Running'] for q in quarter_labels],
+        'Closed': [status_period_counts['quarter'][q]['Closed'] for q in quarter_labels],
+        'Open': [status_period_counts['quarter'][q]['Open'] for q in quarter_labels],
+    }
+    half_data = {
+        'Running': [status_period_counts['half'][h]['Running'] for h in half_labels],
+        'Closed': [status_period_counts['half'][h]['Closed'] for h in half_labels],
+        'Open': [status_period_counts['half'][h]['Open'] for h in half_labels],
+    }
+    year_data_status = {
+        'Running': [status_period_counts['year'][y]['Running'] for y in year_labels_status],
+        'Closed': [status_period_counts['year'][y]['Closed'] for y in year_labels_status],
+        'Open': [status_period_counts['year'][y]['Open'] for y in year_labels_status],
+    }
+
     return render_template(
         'visualization.html',
         admin_status_counts=admin_status_counts,
@@ -247,7 +292,13 @@ def visualization():
         cost_vertical_values=cost_vertical_values,
         stacked_labels=stacked_labels,
         stacked_verticals=stacked_verticals,
-        stacked_data=stacked_data
+        stacked_data=stacked_data,
+        quarter_labels=quarter_labels,
+        quarter_data=quarter_data,
+        half_labels=half_labels,
+        half_data=half_data,
+        year_labels_status=year_labels_status,
+        year_data_status=year_data_status
     )
 
 # Route for the add project page (admin only)
@@ -286,6 +337,7 @@ def add_project():
             original_pdc=form.original_pdc.data,
             revised_pdc=form.revised_pdc.data,
             stakeholders=form.stakeholders.data,
+            scope_objective=form.scope_objective.data,
             expected_deliverables=form.expected_deliverables.data,
             Outcome_Dovetailing_with_Ongoing_Work=form.Outcome_Dovetailing_with_Ongoing_Work.data,
             rab_meeting_date=form.rab_meeting_date.data,
@@ -295,7 +347,9 @@ def add_project():
             gc_meeting_held_date=form.gc_meeting_held_date.data,
             gc_minutes=form.gc_minutes.data,
             technical_status=form.technical_status.data,
-            administrative_status=form.administrative_status.data
+            administrative_status=form.administrative_status.data,
+            final_closure_date=form.final_closure_date.data,
+            final_closure_remarks=form.final_closure_remarks.data
         )
         db.session.add(project)
         db.session.commit()
@@ -533,7 +587,18 @@ def delete_project():
         flash("Unauthorized access. You do not have permission to delete projects", "danger")
         return redirect(url_for('dashboard'))
 
-    projects = Project.query.all()
+    query = Project.query   
+
+    # Dropdown filter logic
+    column = request.args.get('column', '')
+    value = request.args.get('value', '').strip()
+    if column and value:
+        if column == 'serial_no':
+            query = query.filter(Project.serial_no.ilike(f"%{value}%"))
+        elif column == 'title':
+            query = query.filter(Project.title.ilike(f"%{value}%"))
+
+    projects = query.order_by(Project.serial_no).all()
 
     if request.method == 'POST':
         project_id = request.form.get('project_id')
@@ -555,7 +620,7 @@ def delete_project():
 @login_required
 def download_csv():
     projects = Project.query.order_by(db.cast(Project.serial_no, db.Integer)).all()
-    csv_data = "S. No, Nomenclature, Academia/Institute, PI Name, Coordinating Lab, Coordinating Lab Scientist, Research Vertical, Sanctioned Cost (in Lakhs), Sanctioned Date, Original PDC, Revised PDC, Stake Holding Labs, Expected Deliverables/Technology, Outcome Dovetailing with Ongoing Work, RAB Meeting Scheduled Date, RAB Meeting Held Date, RAB Minutes of Meeting, GC Meeting Scheduled Date, GC Meeting Held Date, GC Minutes of Meeting, Technical Status, Administrative Status\n"
+    csv_data = "S. No, Nomenclature, Academia/Institute, PI Name, Coordinating Lab, Coordinating Lab Scientist, Research Vertical, Sanctioned Cost (in Lakhs), Sanctioned Date, Original PDC, Revised PDC, Stake Holding Labs, Scope/Objective of the Project, Expected Deliverables/Technology, Outcome Dovetailing with Ongoing Work, RAB Meeting Scheduled Date, RAB Meeting Held Date, RAB Minutes of Meeting, GC Meeting Scheduled Date, GC Meeting Held Date, GC Minutes of Meeting, Technical Status, Administrative Status, Final Closure Status\n"
     for project in projects:
         def esc(val):
             if val is None:
@@ -566,12 +631,14 @@ def download_csv():
             f'"{esc(project.coord_lab)}","{esc(project.scientist)}","{esc(project.vertical)}","{esc(project.cost_lakhs)}",'
             f'"{esc(project.sanctioned_date)}","{esc(project.original_pdc)}",'
             f'"{esc(project.revised_pdc)}","{esc(project.stakeholders)}",'
+            f'"{esc(project.scope_objective)}",'
             f'"{esc(project.expected_deliverables)}",'
             f'"{esc(project.Outcome_Dovetailing_with_Ongoing_Work)}",'
             f'"{esc(project.rab_meeting_date)}","{esc(project.rab_meeting_held_date)}",'
             f'"{esc(project.gc_meeting_date)}","{esc(project.gc_meeting_held_date)}",'
             f'"{esc(project.gc_minutes)}",'
             f'"{esc(project.technical_status)}","{esc(project.administrative_status)}"\n'
+            f'"{esc((str(project.final_closure_date) if project.final_closure_date else "") + (" | " + project.final_closure_remarks if project.final_closure_remarks else ""))}",'
         )
 
     # Ensure no redundant columns are added
@@ -620,6 +687,7 @@ def download_pdf():
         Paragraph("Original PDC", wrap_style),
         Paragraph("Revised PDC", wrap_style),
         Paragraph("Stake Holding Labs", wrap_style),
+        Paragraph("Scope/Objective of the Project", wrap_style),
         Paragraph("Expected Deliverables / Technology", wrap_style),
         Paragraph("Outcome Dovetailing with Ongoing Work", wrap_style),
         Paragraph("RAB Meeting Scheduled Date", wrap_style),
@@ -629,7 +697,8 @@ def download_pdf():
         Paragraph("GC Meeting Held Date", wrap_style),
         Paragraph("GC Minutes of Meeting", wrap_style),
         Paragraph("Technical Status", wrap_style),
-        Paragraph("Administrative Status", wrap_style)
+        Paragraph("Administrative Status", wrap_style),
+        Paragraph("Final Closure Status", wrap_style)
     ]
 
     data = [header_row]
@@ -648,6 +717,8 @@ def download_pdf():
             str(project.original_pdc or ''),
             str(project.revised_pdc or ''),
             Paragraph(project.stakeholders or '', wrap_style),
+            Paragraph(project.stakeholders or '', wrap_style),
+            Paragraph(project.scope_objective or '', wrap_style),
             Paragraph(project.expected_deliverables or '', wrap_style),
             Paragraph(project.Outcome_Dovetailing_with_Ongoing_Work or '', wrap_style),
             str(project.rab_meeting_date or ''),
@@ -657,11 +728,16 @@ def download_pdf():
             str(project.gc_meeting_held_date or ''),
             Paragraph(project.gc_minutes or '', wrap_style),
             Paragraph((project.technical_status or '').replace('\n', '<br/>'), wrap_style),
-            Paragraph(project.administrative_status or '', wrap_style)
+            Paragraph(project.administrative_status or '', wrap_style),
+            Paragraph(
+                (project.final_closure_date.strftime('%Y-%m-%d') if project.final_closure_date else '') +
+                ('<br/><b>Remarks:</b> ' + project.final_closure_remarks if project.final_closure_remarks else ''),
+                wrap_style
+            )
         ])
 
     # Define proportional column widths
-    col_widths = [35, 100, 85, 65, 65, 75, 65, 45, 75, 75, 75, 75, 75, 75, 75, 75, 100, 75, 75, 100, 90, 75]
+    col_widths = [35, 100, 85, 65, 65, 75, 65, 45, 75, 75, 75, 75, 75, 75, 75, 75, 100, 75, 75, 100, 90, 75, 75, 75]
     scale_factor = available_width / sum(col_widths)
     col_widths = [w * scale_factor for w in col_widths]
 
