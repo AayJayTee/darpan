@@ -1,5 +1,5 @@
 #Import necessary libraries
-from flask import Flask, render_template, redirect, url_for, flash, request, jsonify
+from flask import Flask, render_template, redirect, url_for, flash, request, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -7,6 +7,7 @@ from models import db, User, Project, Log
 from forms import LoginForm, ProjectForm
 import datetime
 from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 from pytz import timezone
 
 from io import BytesIO
@@ -18,10 +19,12 @@ from reportlab.lib import colors
 
 from flask_migrate import Migrate
 from collections import Counter, defaultdict
-
-from collections import defaultdict
 import calendar
 import os
+
+import uuid
+from werkzeug.utils import secure_filename
+from werkzeug.datastructures import FileStorage
 
 # Initialize Flask app and database
 app = Flask(__name__)
@@ -35,6 +38,22 @@ login_manager.login_view = 'login'
 
 #Flas-Migrate for database migrations
 migrate = Migrate(app, db)
+
+
+UPLOAD_FOLDER = os.path.join(app.instance_path, 'uploads')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+
+def save_pdf(file):
+    if file and file.filename and file.filename.endswith('.pdf'):
+        filename = secure_filename(f"{uuid.uuid4()}_{file.filename}")
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        print(f"Saving file to: {filepath}")  # Debug line
+        file.save(filepath)
+        return filename
+    return None
+
 
 # Initialize Flask-Login
 @login_manager.user_loader
@@ -231,36 +250,124 @@ def visualization():
         stacked_data.append({'label': vertical, 'data': data})
 
     # --- Quarterly, Half-Yearly, Yearly Status Counts ---
+    def get_financial_year(date):
+        if date.month >= 4:
+            return f"{date.year}-{str(date.year+1)[-2:]}"
+        else:
+            return f"{date.year-1}-{str(date.year)[-2:]}"
 
-    def get_period(date, period_type):
-        if not date:
-            return None
-        if period_type == 'quarter':
-            return f"{date.year} Q{((date.month-1)//3)+1}"
-        elif period_type == 'half':
-            return f"{date.year} H{1 if date.month <= 6 else 2}"
-        elif period_type == 'year':
-            return str(date.year)
+    def get_financial_quarter(date):
+        fy = get_financial_year(date)
+        if date.month in [4,5,6]:
+            q = "Q1"
+        elif date.month in [7,8,9]:
+            q = "Q2"
+        elif date.month in [10,11,12]:
+            q = "Q3"
+        else:
+            q = "Q4"
+        return f"{fy} {q}"
 
+    def get_financial_half(date):
+        fy = get_financial_year(date)
+        if date.month >= 4 and date.month <= 9:
+            h = "H1"
+        else:
+            h = "H2"
+        return f"{fy} {h}"
+
+    # 1. Collect all periods from all projects
+    fy_set, fq_set, fh_set = set(), set(), set()
+    for p in projects:
+        if not p.sanctioned_date:
+            continue
+        fy_set.add(get_financial_year(p.sanctioned_date))
+        fq_set.add(get_financial_quarter(p.sanctioned_date))
+        fh_set.add(get_financial_half(p.sanctioned_date))
+        closure_date = None
+        if getattr(p, 'final_closure_date', None):
+            closure_date = p.final_closure_date
+        elif getattr(p, 'revised_pdc', None):
+            closure_date = p.revised_pdc
+        elif getattr(p, 'original_pdc', None):
+            closure_date = p.original_pdc
+        if closure_date:
+            fy_set.add(get_financial_year(closure_date))
+            fq_set.add(get_financial_quarter(closure_date))
+            fh_set.add(get_financial_half(closure_date))
+
+    # Sort periods
+    year_labels_status = sorted(fy_set)
+    quarter_labels = sorted(fq_set)
+    half_labels = sorted(fh_set)
+
+    # 2. For each period, count status
     status_period_counts = {
-        'quarter': defaultdict(lambda: {'Running':0, 'Closed':0, 'Open':0}),
-        'half': defaultdict(lambda: {'Running':0, 'Closed':0, 'Open':0}),
-        'year': defaultdict(lambda: {'Running':0, 'Closed':0, 'Open':0}),
+        'year': {fy: {'Open':0, 'Running':0, 'Closed':0} for fy in year_labels_status},
+        'quarter': {fq: {'Open':0, 'Running':0, 'Closed':0} for fq in quarter_labels},
+        'half': {fh: {'Open':0, 'Running':0, 'Closed':0} for fh in half_labels},
     }
 
     for p in projects:
-        status = (p.administrative_status or '').capitalize()
-        if status not in ['Running', 'Closed', 'Open']:
+        if not p.sanctioned_date:
             continue
-        for period_type in ['quarter', 'half', 'year']:
-            period = get_period(p.sanctioned_date, period_type)
-            if period:
-                status_period_counts[period_type][period][status] += 1
+        # Closure date
+        closure_date = None
+        if getattr(p, 'final_closure_date', None):
+            closure_date = p.final_closure_date
+        elif getattr(p, 'revised_pdc', None):
+            closure_date = p.revised_pdc
+        elif getattr(p, 'original_pdc', None):
+            closure_date = p.original_pdc
 
-    # Sort periods for each type
-    quarter_labels = sorted(status_period_counts['quarter'].keys())
-    half_labels = sorted(status_period_counts['half'].keys())
-    year_labels_status = sorted(status_period_counts['year'].keys())
+        # For each period, assign status
+        for fy in year_labels_status:
+            fy_start = datetime.strptime(fy.split('-')[0] + '-04-01', '%Y-%m-%d').date()
+            fy_end = datetime.strptime(str(int(fy.split('-')[0])+1) + '-03-31', '%Y-%m-%d').date()
+            if fy_start <= p.sanctioned_date <= fy_end:
+                status_period_counts['year'][fy]['Open'] += 1
+            elif closure_date and fy_start <= closure_date <= fy_end:
+                status_period_counts['year'][fy]['Closed'] += 1
+            elif p.sanctioned_date < fy_start and (not closure_date or closure_date > fy_end):
+                status_period_counts['year'][fy]['Running'] += 1
+
+        for fq in quarter_labels:
+            y, q = fq.split()
+            y_start = int(y.split('-')[0])
+            if q == "Q1":
+                q_start = datetime(y_start, 4, 1).date()
+                q_end = datetime(y_start, 6, 30).date()
+            elif q == "Q2":
+                q_start = datetime(y_start, 7, 1).date()
+                q_end = datetime(y_start, 9, 30).date()
+            elif q == "Q3":
+                q_start = datetime(y_start, 10, 1).date()
+                q_end = datetime(y_start, 12, 31).date()
+            else: # Q4
+                q_start = datetime(y_start+1, 1, 1).date()
+                q_end = datetime(y_start+1, 3, 31).date()
+            if q_start <= p.sanctioned_date <= q_end:
+                status_period_counts['quarter'][fq]['Open'] += 1
+            elif closure_date and q_start <= closure_date <= q_end:
+                status_period_counts['quarter'][fq]['Closed'] += 1
+            elif p.sanctioned_date < q_start and (not closure_date or closure_date > q_end):
+                status_period_counts['quarter'][fq]['Running'] += 1
+
+        for fh in half_labels:
+            y, h = fh.split()
+            y_start = int(y.split('-')[0])
+            if h == "H1":
+                h_start = datetime(y_start, 4, 1).date()
+                h_end = datetime(y_start, 9, 30).date()
+            else: # H2
+                h_start = datetime(y_start, 10, 1).date()
+                h_end = datetime(y_start+1, 3, 31).date()
+            if h_start <= p.sanctioned_date <= h_end:
+                status_period_counts['half'][fh]['Open'] += 1
+            elif closure_date and h_start <= closure_date <= h_end:
+                status_period_counts['half'][fh]['Closed'] += 1
+            elif p.sanctioned_date < h_start and (not closure_date or closure_date > h_end):
+                status_period_counts['half'][fh]['Running'] += 1
 
     # Prepare data for Chart.js
     quarter_data = {
@@ -278,6 +385,166 @@ def visualization():
         'Closed': [status_period_counts['year'][y]['Closed'] for y in year_labels_status],
         'Open': [status_period_counts['year'][y]['Open'] for y in year_labels_status],
     }
+
+    # --- Average Project Duration by Sanction Year (in days) ---
+    duration_by_year = {}
+    for p in projects:
+        if p.sanctioned_date:
+            # Use final_closure_date if available, else revised_pdc if available
+            end_date = None
+            if p.final_closure_date:
+                end_date = p.final_closure_date
+            elif p.revised_pdc:
+                end_date = p.revised_pdc
+            # Only calculate if we have both dates
+            if end_date:
+                year = p.sanctioned_date.year
+                duration = (end_date - p.sanctioned_date).days
+                duration_by_year.setdefault(year, []).append(duration)
+    avg_duration_labels = sorted([str(y) for y in duration_by_year.keys()])
+    avg_duration_values = [
+        round(sum(duration_by_year[int(y)]) / len(duration_by_year[int(y)]), 1)
+        for y in avg_duration_labels
+    ]
+
+    # --- Project Status Breakdown by Vertical ---
+    vertical_status_counts = defaultdict(lambda: {'Running': 0, 'Closed': 0, 'Open': 0})
+
+    for p in projects:
+        if not p.vertical:
+            continue
+        # Closure date logic
+        closure_date = None
+        if getattr(p, 'final_closure_date', None):
+            closure_date = p.final_closure_date
+        elif getattr(p, 'revised_pdc', None):
+            closure_date = p.revised_pdc
+        elif getattr(p, 'original_pdc', None):
+            closure_date = p.original_pdc
+
+        today = datetime.today().date()
+        # Status logic: Closed, Open, Running
+        if closure_date and closure_date <= today:
+            vertical_status_counts[p.vertical]['Closed'] += 1
+        elif p.sanctioned_date and p.sanctioned_date.year == today.year and (not closure_date or closure_date > today):
+            vertical_status_counts[p.vertical]['Open'] += 1
+        else:
+            vertical_status_counts[p.vertical]['Running'] += 1
+
+    vertical_status_labels = sorted(vertical_status_counts.keys())
+    vertical_status_data = {
+        'Running': [vertical_status_counts[v]['Running'] for v in vertical_status_labels],
+        'Closed': [vertical_status_counts[v]['Closed'] for v in vertical_status_labels],
+        'Open': [vertical_status_counts[v]['Open'] for v in vertical_status_labels],
+    }
+
+    # --- Projects by Funding Range (Histogram) ---
+    # Define funding brackets in lakhs
+    funding_brackets = [
+        (0, 50), (50, 100), (100, 200), (200, 500), (500, 1000), (1000, 5000), (5000, 10000)
+    ]
+    funding_labels = [f"{low}-{high}L" for (low, high) in funding_brackets]
+    funding_counts = [0 for _ in funding_brackets]
+    for p in projects:
+        if p.cost_lakhs is not None:
+            for i, (low, high) in enumerate(funding_brackets):
+                if low <= p.cost_lakhs < high:
+                    funding_counts[i] += 1
+                    break
+
+    # --- Top Institutes by Number of Projects ---
+    institute_counts = Counter()
+    for p in projects:
+        if p.academia:
+            # Extract name after the first comma, or use the whole string if no comma
+            if ',' in p.academia:
+                institute = p.academia.split(',', 1)[1].strip()
+            else:
+                institute = p.academia.strip()
+            institute_counts[institute] += 1
+
+    # Get top N (e.g., 10) institutes
+    top_n = 10
+    top_institutes = institute_counts.most_common(top_n)
+    top_institute_labels = [x[0] for x in top_institutes]
+    top_institute_values = [x[1] for x in top_institutes]
+
+    pi_names = []
+    for p in projects:
+        if p.pi_name:
+            # Take only before comma
+            before_comma = p.pi_name.split(',')[0]
+            # Split on '/' and strip spaces
+            for name in before_comma.split('/'):
+                clean_name = name.strip()
+                if clean_name:
+                    pi_names.append(clean_name)
+
+    pi_counts = Counter(pi_names)
+    top_pis = pi_counts.most_common(10)  # Get top 10 PIs
+    top_pis_labels = [pi[0] for pi in top_pis]
+    top_pis_values = [pi[1] for pi in top_pis]
+
+    # --- Administrative Status Trend (Line/Area Chart) ---
+    status_trend = defaultdict(lambda: defaultdict(int))
+    today = datetime.today().date()
+    for p in projects:
+        if p.sanctioned_date:
+            start_year = p.sanctioned_date.year
+            # Determine closure year (if any)
+            closure_date = None
+            if getattr(p, 'final_closure_date', None):
+                closure_date = p.final_closure_date
+            elif getattr(p, 'revised_pdc', None):
+                closure_date = p.revised_pdc
+            elif getattr(p, 'original_pdc', None):
+                closure_date = p.original_pdc
+            end_year = closure_date.year if closure_date and closure_date <= today else today.year
+
+            # Mark as "Ongoing" for every year from sanction to closure (or today)
+            for year in range(start_year, end_year + 1):
+                if year == end_year and closure_date and closure_date.year == year and closure_date <= today:
+                    # If closed in this year, count as "Completed" (or "Closed") for this year
+                    status_trend["Completed"][year] += 1
+                else:
+                    status_trend["Ongoing"][year] += 1
+
+    # Prepare sorted lists for Chart.js
+    all_statuses = sorted(status_trend.keys())
+    all_years = sorted({year for status in status_trend.values() for year in status.keys()})
+    status_trend_labels = [str(y) for y in all_years]
+    status_trend_datasets = []
+    for i, status in enumerate(all_statuses):
+        data = [status_trend[status].get(y, 0) for y in all_years]
+        status_trend_datasets.append({
+            "label": status,
+            "data": data,
+            "borderColor": f"rgba({60+i*40},{100+i*30},{200-i*30},0.9)",
+            "backgroundColor": f"rgba({60+i*40},{100+i*30},{200-i*30},0.2)",
+            "fill": True
+        })
+
+    # --- Sanctioned Cost Trend per Year ---
+    cost_trend_year = {}
+    for p in projects:
+        if p.sanctioned_date and p.cost_lakhs is not None:
+            year = p.sanctioned_date.year
+            try:
+                cost_trend_year[year] = cost_trend_year.get(year, 0) + float(p.cost_lakhs)
+            except ValueError:
+                continue
+    cost_trend_year_labels = sorted(cost_trend_year.keys())
+    cost_trend_year_values = [cost_trend_year[y] for y in cost_trend_year_labels]
+
+    # Projects by Stakeholder Lab
+    stakeholder_counts = Counter()
+    for p in projects:
+        if p.stakeholders:
+            labs = [lab.strip() for lab in str(p.stakeholders).split(',') if lab.strip()]
+            for lab in labs:
+                stakeholder_counts[lab] += 1
+    stakeholder_lab_labels = list(stakeholder_counts.keys())
+    stakeholder_lab_values = [stakeholder_counts[k] for k in stakeholder_lab_labels]
 
     return render_template(
         'visualization.html',
@@ -298,7 +565,23 @@ def visualization():
         half_labels=half_labels,
         half_data=half_data,
         year_labels_status=year_labels_status,
-        year_data_status=year_data_status
+        year_data_status=year_data_status,
+        avg_duration_labels=avg_duration_labels,
+        avg_duration_values=avg_duration_values,
+        vertical_status_labels=vertical_status_labels,
+        vertical_status_data=vertical_status_data,
+        funding_labels=funding_labels,
+        funding_counts=funding_counts,
+        top_institute_labels=top_institute_labels,
+        top_institute_values=top_institute_values,
+        top_pis_labels=top_pis_labels,
+        top_pis_values=top_pis_values,
+        status_trend_labels=status_trend_labels,
+        status_trend_datasets=status_trend_datasets,
+        cost_trend_year_labels=cost_trend_year_labels,
+        cost_trend_year_values=cost_trend_year_values,
+        stakeholder_lab_labels=stakeholder_lab_labels,
+        stakeholder_lab_values=stakeholder_lab_values,
     )
 
 # Route for the add project page (admin only)
@@ -323,6 +606,26 @@ def add_project():
         if existing_project:
             form.serial_no.errors.append("Project with this serial number already exists")
             return render_template('add_project.html', form=form)
+        
+        rab_filenames = []
+        if form.rab_minutes.data:
+            for file in form.rab_minutes.data:
+                filename = save_pdf(file)
+                if filename:
+                    rab_filenames.append(filename)
+        gc_filenames = []
+        if form.gc_minutes.data:
+            for file in form.gc_minutes.data:
+                filename = save_pdf(file)
+                if filename:
+                    gc_filenames.append(filename)
+        final_report_filenames = []
+        if form.final_report.data:
+            for file in form.final_report.data:
+                filename = save_pdf(file)
+                if filename:
+                    final_report_filenames.append(filename)
+
         # Add project
         project = Project(
             serial_no=form.serial_no.data,
@@ -342,14 +645,14 @@ def add_project():
             Outcome_Dovetailing_with_Ongoing_Work=form.Outcome_Dovetailing_with_Ongoing_Work.data,
             rab_meeting_date=form.rab_meeting_date.data,
             rab_meeting_held_date=form.rab_meeting_held_date.data,
-            rab_minutes=form.rab_minutes.data,
+            rab_minutes=','.join(rab_filenames),
             gc_meeting_date=form.gc_meeting_date.data,
             gc_meeting_held_date=form.gc_meeting_held_date.data,
-            gc_minutes=form.gc_minutes.data,
             technical_status=form.technical_status.data,
             administrative_status=form.administrative_status.data,
             final_closure_date=form.final_closure_date.data,
-            final_closure_remarks=form.final_closure_remarks.data
+            final_closure_remarks=form.final_closure_remarks.data,
+            final_report=','.join(final_report_filenames)
         )
         db.session.add(project)
         db.session.commit()
@@ -358,6 +661,12 @@ def add_project():
         return redirect(url_for('dashboard'))
 
     return render_template('add_project.html', form=form)
+
+@app.route('/uploads/<filename>')
+@login_required
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
 
 @app.route('/post_technical_status/<int:project_id>', methods=['POST'])
 @login_required
@@ -550,6 +859,7 @@ def modify_search():
     return render_template('modify_search.html', projects=projects)
 
 
+
 # Route for the edit project page (Admin only)
 @app.route('/edit/<int:project_id>', methods=['GET', 'POST'])
 @login_required
@@ -570,14 +880,77 @@ def edit_project(project_id):
             flash("Revised PDC cannot be before the Original PDC.", "danger")
             return render_template('edit_project.html', form=form, project=project)
 
+        # Append new files to existing list
+        rab_filenames = project.rab_minutes.split(',') if project.rab_minutes else []
+        if form.rab_minutes.data:
+            for file in form.rab_minutes.data:
+                # Only save if it's a FileStorage (uploaded file)
+                if hasattr(file, "filename") and file.filename:
+                    filename = save_pdf(file)
+                    if filename:
+                        rab_filenames.append(filename)
+        project.rab_minutes = ','.join([f for f in rab_filenames if f])
+
+        gc_filenames = project.gc_minutes.split(',') if project.gc_minutes else []
+        if form.gc_minutes.data:
+            for file in form.gc_minutes.data:
+                if hasattr(file, "filename") and file.filename:
+                    filename = save_pdf(file)
+                    if filename:
+                        gc_filenames.append(filename)
+        project.gc_minutes = ','.join([f for f in gc_filenames if f])
+
+        final_report_filenames = project.final_report.split(',') if project.final_report else []
+        if form.final_report.data:
+            for file in form.final_report.data:
+                if hasattr(file, "filename") and file.filename:
+                    filename = save_pdf(file)
+                    if filename:
+                        final_report_filenames.append(filename)
+        project.final_report = ','.join([f for f in final_report_filenames if f])
+
         # Update project
-        form.populate_obj(project)
+        exclude_fields = ['rab_minutes', 'gc_minutes', 'final_report']
+        for field in form:
+            if field.name not in exclude_fields and hasattr(project, field.name):
+                setattr(project, field.name, field.data)
+
         db.session.commit()
         log_action(current_user, f"Edited project '{project.title}'")
         flash('Project updated successfully!', 'success')
         return redirect(url_for('dashboard'))
 
     return render_template('edit_project.html', form=form, project=project)
+
+
+@app.route('/remove_mom_file/<int:project_id>/<mom_type>/<filename>')
+@login_required
+def remove_mom_file(project_id, mom_type, filename):
+    project = Project.query.get_or_404(project_id)
+    if current_user.role != 'admin':
+        flash("Unauthorized.", "danger")
+        return redirect(url_for('dashboard'))
+    if mom_type == 'rab':
+        files = project.rab_minutes.split(',') if project.rab_minutes else []
+        files = [f for f in files if f != filename]
+        project.rab_minutes = ','.join(files)
+    elif mom_type == 'gc':
+        files = project.gc_minutes.split(',') if project.gc_minutes else []
+        files = [f for f in files if f != filename]
+        project.gc_minutes = ','.join(files)
+    elif mom_type == 'final_report':  
+        files = project.final_report.split(',') if project.final_report else []
+        files = [f for f in files if f != filename]
+        project.final_report = ','.join(files)
+    # Optionally delete file from disk
+    try:
+        os.remove(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+    except Exception:
+        pass
+    db.session.commit()
+    flash("File removed.", "success")
+    return redirect(request.referrer or url_for('dashboard'))
+
 
 # Route for the delete project page (Admin only)
 @app.route('/delete', methods=['GET', 'POST'])
@@ -614,6 +987,29 @@ def delete_project():
 
     return render_template('delete_proj.html', projects=projects, now=datetime.now())
 
+@app.route('/upload_mom/<int:project_id>/<mom_type>', methods=['POST'])
+@login_required
+def upload_mom(project_id, mom_type):
+    project = Project.query.get_or_404(project_id)
+    if current_user.role != 'admin':
+        flash("Unauthorized.", "danger")
+        return redirect(url_for('dashboard'))
+    file = request.files.get('mom_file')
+    if file and file.filename.endswith('.pdf'):
+        filename = save_pdf(file)
+        if mom_type == 'rab':
+            files = project.rab_minutes.split(',') if project.rab_minutes else []
+            files.append(filename)
+            project.rab_minutes = ','.join(files)
+        elif mom_type == 'gc':
+            files = project.gc_minutes.split(',') if project.gc_minutes else []
+            files.append(filename)
+            project.gc_minutes = ','.join(files)
+        db.session.commit()
+        flash("PDF attached successfully.", "success")
+    else:
+        flash("Please upload a valid PDF file.", "danger")
+    return redirect(request.referrer or url_for('dashboard'))
 
 # Route for the download CSV
 @app.route('/download_csv', methods=['GET'])
@@ -687,15 +1083,13 @@ def download_pdf():
         Paragraph("Original PDC", wrap_style),
         Paragraph("Revised PDC", wrap_style),
         Paragraph("Stake Holding Labs", wrap_style),
-        Paragraph("Scope/Objective of the Project", wrap_style),
+        Paragraph("Scope / Objective of the Project", wrap_style),
         Paragraph("Expected Deliverables / Technology", wrap_style),
         Paragraph("Outcome Dovetailing with Ongoing Work", wrap_style),
         Paragraph("RAB Meeting Scheduled Date", wrap_style),
         Paragraph("RAB Meeting Held Date", wrap_style),
-        Paragraph("RAB Minutes of Meeting", wrap_style),
         Paragraph("GC Meeting Scheduled Date", wrap_style),
         Paragraph("GC Meeting Held Date", wrap_style),
-        Paragraph("GC Minutes of Meeting", wrap_style),
         Paragraph("Technical Status", wrap_style),
         Paragraph("Administrative Status", wrap_style),
         Paragraph("Final Closure Status", wrap_style)
@@ -717,16 +1111,13 @@ def download_pdf():
             str(project.original_pdc or ''),
             str(project.revised_pdc or ''),
             Paragraph(project.stakeholders or '', wrap_style),
-            Paragraph(project.stakeholders or '', wrap_style),
             Paragraph(project.scope_objective or '', wrap_style),
             Paragraph(project.expected_deliverables or '', wrap_style),
             Paragraph(project.Outcome_Dovetailing_with_Ongoing_Work or '', wrap_style),
             str(project.rab_meeting_date or ''),
             str(project.rab_meeting_held_date or ''),
-            Paragraph(project.rab_minutes or '', wrap_style),
             str(project.gc_meeting_date or ''),
             str(project.gc_meeting_held_date or ''),
-            Paragraph(project.gc_minutes or '', wrap_style),
             Paragraph((project.technical_status or '').replace('\n', '<br/>'), wrap_style),
             Paragraph(project.administrative_status or '', wrap_style),
             Paragraph(
@@ -737,7 +1128,30 @@ def download_pdf():
         ])
 
     # Define proportional column widths
-    col_widths = [35, 100, 85, 65, 65, 75, 65, 45, 75, 75, 75, 75, 75, 75, 75, 75, 100, 75, 75, 100, 90, 75, 75, 75]
+    col_widths = [
+        20,   # S. No.
+        100,  # Nomenclature
+        65,   # Academia / Institute
+        65,   # PI Name
+        60,   # Coordinating Lab
+        70,   # Coordinating Lab Scientist
+        60,   # Research Vertical
+        50,   # Cost (Lakhs)
+        75,   # Sanctioned Date
+        75,   # Original PDC
+        75,   # Revised PDC
+        70,   # Stake Holding Labs
+        75,   # Scope / Objective of the Project
+        75,   # Expected Deliverables / Technology
+        75,   # Outcome Dovetailing with Ongoing Work
+        75,   # RAB Meeting Scheduled Date
+        75,   # RAB Meeting Held Date
+        75,   # GC Meeting Scheduled Date
+        75,   # GC Meeting Held Date
+        70,   # Technical Status
+        65,   # Administrative Status
+        70,   # Final Closure Status
+    ]
     scale_factor = available_width / sum(col_widths)
     col_widths = [w * scale_factor for w in col_widths]
 
