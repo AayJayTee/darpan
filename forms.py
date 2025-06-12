@@ -2,7 +2,9 @@
 from flask_wtf import FlaskForm
 from wtforms import IntegerField, StringField, PasswordField, SubmitField, FloatField, DateField, SelectField, TextAreaField
 from wtforms.validators import DataRequired, Length, ValidationError, Optional
-from flask_wtf.file import FileField, MultipleFileField, FileAllowed
+from flask_wtf.file import FileField, FileAllowed
+from wtforms.fields import MultipleFileField 
+
 
 # This file is part of the Project Management System.
 # LoginForm is used for user authentication on the login page
