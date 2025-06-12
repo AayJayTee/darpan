@@ -2,6 +2,7 @@
 from flask_wtf import FlaskForm
 from wtforms import IntegerField, StringField, PasswordField, SubmitField, FloatField, DateField, SelectField, TextAreaField
 from wtforms.validators import DataRequired, Length, ValidationError, Optional
+from flask_wtf.file import FileField, MultipleFileField, FileAllowed
 
 # This file is part of the Project Management System.
 # LoginForm is used for user authentication on the login page
@@ -31,14 +32,15 @@ class ProjectForm(FlaskForm):
     Outcome_Dovetailing_with_Ongoing_Work=TextAreaField('Outcome Dovetailing with Ongoing Work')
     rab_meeting_date = TextAreaField('RAB Meeting Scheduled Date')
     rab_meeting_held_date = TextAreaField('RAB Meeting Held Date')
-    rab_minutes = TextAreaField('RAB Minutes of Meeting')
+    rab_minutes = MultipleFileField('RAB Minutes of Meeting', validators=[FileAllowed(['pdf'], 'PDF only!')])
     gc_meeting_date = TextAreaField('GC Meeting Date')
     gc_meeting_held_date = TextAreaField('GC Meeting Scheduled Held Date')
-    gc_minutes = TextAreaField('GC Minutes of Meeting')
+    gc_minutes = MultipleFileField('GC Minutes of Meeting', validators=[FileAllowed(['pdf'], 'PDF only!')])
     technical_status = TextAreaField('Technical Status')
     administrative_status = SelectField('Administrative Status', choices=[('ongoing', 'Ongoing'), ('completed', 'Completed'), ('pending', 'Pending')], validators=[DataRequired()])
     final_closure_date = DateField('Final Closure Date', format='%Y-%m-%d', validators=[Optional()])
     final_closure_remarks = TextAreaField('Final Closure Remarks', validators=[Optional()])
+    final_report = MultipleFileField('Final Report', validators=[FileAllowed(['pdf'], 'PDF only!')])
     submit = SubmitField('Submit')
     
     def validate_original_pdc(self, field):

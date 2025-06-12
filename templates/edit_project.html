@@ -4,7 +4,7 @@
 {% block content %}
 <div class="container mt-5">
     <h2 class="mb-4">Edit Project: {{ project.title }}</h2>
-    <form method="POST">
+    <form method="POST" enctype="multipart/form-data">
         {{ form.hidden_tag() }}
 
         <div class="form-group">
@@ -143,13 +143,22 @@
             {% endfor %}
         </div>
 
-        <div class="form-group">
+        <div class="mb-3">
             {{ form.rab_minutes.label(class="form-label") }}
-            {{ form.rab_minutes(class="form-control") }}
+            {{ form.rab_minutes(class="form-control", multiple=True, accept=".pdf") }}
             {% for error in form.rab_minutes.errors %}
                 <div class="text-danger small">{{ error }}</div>
             {% endfor %}
+            <div class="text-muted mb-2">Upload one or more RAB Minutes of Meeting PDFs.</div>
         </div>
+        {% if project.rab_minutes %}
+            {% for filename in project.rab_minutes.split(',') %}
+                <div>
+                <a href="{{ url_for('uploaded_file', filename=filename) }}" target="_blank">{{ filename }}</a>
+                <a href="{{ url_for('remove_mom_file', project_id=project.id, mom_type='rab', filename=filename) }}" class="btn btn-danger btn-sm">Remove<br></a>
+                </div>
+            {% endfor %}
+        {% endif %}
       
         <div class="form-group">
             {{ form.gc_meeting_date.label(class="form-label") }}
@@ -167,13 +176,22 @@
             {% endfor %}
         </div>
 
-        <div class="form-group">
+        <div class="mb-3">
             {{ form.gc_minutes.label(class="form-label") }}
-            {{ form.gc_minutes(class="form-control") }}
+            {{ form.gc_minutes(class="form-control", multiple=True, accept=".pdf") }}
             {% for error in form.gc_minutes.errors %}
                 <div class="text-danger small">{{ error }}</div>
             {% endfor %}
+            <div class="text-muted mb-2">Upload one or more GC Minutes of Meeting PDFs.</div>
         </div>
+        {% if project.gc_minutes %}
+            {% for filename in project.gc_minutes.split(',') %}
+                <div>
+                <a href="{{ url_for('uploaded_file', filename=filename) }}" target="_blank">{{ filename }}</a>
+                <a href="{{ url_for('remove_mom_file', project_id=project.id, mom_type='gc', filename=filename) }}" class="btn btn-danger btn-sm">Remove</a>
+                </div>
+            {% endfor %}
+        {% endif %}
 
         <div class="form-group">
             {{ form.technical_status.label(class="form-label") }}
@@ -190,7 +208,7 @@
                 <div class="text-danger small">{{ error }}</div>
             {% endfor %}
         </div>
-        
+        <br>
         <div class="mb-3">
             <label class="form-label">Final Closure Status</label>
             <div class="row">
@@ -211,8 +229,26 @@
             </div>
         </div>
         
+        <div class="mb-3">
+            {{ form.final_report.label(class="form-label") }}
+            {{ form.final_report(class="form-control", multiple=True, accept=".pdf") }}
+            {% for error in form.final_report.errors %}
+                <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+            <div class="text-muted mb-2">Upload one or more Final Report PDFs.</div>
+        </div>
+        {% if project.final_report %}
+            {% for filename in project.final_report.split(',') %}
+                <div>
+                <a href="{{ url_for('uploaded_file', filename=filename) }}" target="_blank">{{ filename }}</a>
+                <a href="{{ url_for('remove_mom_file', project_id=project.id, mom_type='final_report', filename=filename) }}" class="btn btn-danger btn-sm">Remove</a>
+                </div>
+            {% endfor %}
+        {% endif %}
+        
         <button type="submit" class="btn btn-primary mt-3">Update Project</button>
         <a href="{{ url_for('dashboard') }}" class="btn btn-secondary mt-3">Cancel</a>
+        <br>
     </form>
 </div>
 {% endblock %}

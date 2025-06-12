@@ -56,23 +56,28 @@
     
     <!-- RAB Minutes of Meeting -->
     <td>
-      <div style="max-height:80px; overflow:auto; font-size:0.95em;">
+      <div style="height:100%; max-height:100%; overflow-y:auto; overflow-x:hidden; font-size:0.95em;">
         {% if project.rab_minutes %}
-          {% for rec in project.rab_minutes.split('\n') %}
-            <div class="mb-1 text-secondary" style="white-space:pre-line;">{{ rec }}</div>
+          {% for filename in project.rab_minutes.split(',') %}
+            <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:140px;">
+              <a href="{{ url_for('uploaded_file', filename=filename) }}" target="_blank" title="{{ filename }}">
+                {{ filename.split('_', 1)[1][:22] ~ ('...' if filename.split('_', 1)[1]|length > 22 else '') if '_' in filename else (filename[:22] ~ ('...' if filename|length > 22 else '')) }}
+              </a>
+            </div>
           {% endfor %}
         {% else %}
           <span class="text-muted">No RAB MoM yet.</span>
         {% endif %}
+        {% if current_user.role == 'admin' %}
+          <div class="mt-2">
+            <form class="rab_mom_upload-form" data-project-id="{{ project.id }}" method="POST" enctype="multipart/form-data" action="{{ url_for('upload_mom', project_id=project.id, mom_type='rab') }}">
+              <input type="file" name="mom_file" accept=".pdf" class="form-control form-control-sm mb-1" style="width:180px;">
+              <button type="submit" class="btn btn-sm btn-primary mt-1">Attach PDF</button>
+            </form>
+          </div>
+        {% endif %}
       </div>
-      {% if current_user.role == 'admin' %}
-        <form class="rab_minutes_of_meeting-form mt-1" data-project-id="{{ project.id }}">
-          <input type="text" name="rab_minutes" class="form-control form-control-sm" placeholder="Add new update">
-          <button type="submit" class="btn btn-sm btn-primary mt-1">Post</button>
-        </form>
-      {% endif %}
     </td>
-
     <!-- GC Meeting Scheduled Date -->
     <td>
       <div style="max-height:80px; overflow:auto; font-size:0.95em;">
@@ -111,23 +116,30 @@
       {% endif %}
     </td>
 
+
     <!-- GC Minutes of Meeting -->
-    <td>
-      <div style="max-height:80px; overflow:auto; font-size:0.95em;">
+    <td style="height:48px; vertical-align:middle;">
+      <div style="height:100%; max-height:100%; overflow-y:auto; overflow-x:hidden; font-size:0.95em;">
         {% if project.gc_minutes %}
-          {% for rec in project.gc_minutes.split('\n') %}
-            <div class="mb-1 text-secondary" style="white-space:pre-line;">{{ rec }}</div>
+          {% for filename in project.gc_minutes.split(',') %}
+            <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:140px;">
+              <a href="{{ url_for('uploaded_file', filename=filename) }}" target="_blank" title="{{ filename }}">
+                {{ filename.split('_', 1)[1][:22] ~ ('...' if filename.split('_', 1)[1]|length > 22 else '') if '_' in filename else (filename[:22] ~ ('...' if filename|length > 22 else '')) }}
+              </a>
+            </div>
           {% endfor %}
         {% else %}
           <span class="text-muted">No GC MoM yet.</span>
         {% endif %}
+        {% if current_user.role == 'admin' %}
+          <div class="mt-2">
+            <form class="gc_mom_upload-form" data-project-id="{{ project.id }}" method="POST" enctype="multipart/form-data" action="{{ url_for('upload_mom', project_id=project.id, mom_type='gc') }}">
+              <input type="file" name="mom_file" accept=".pdf" class="form-control form-control-sm mb-1" style="width:180px;">
+              <button type="submit" class="btn btn-sm btn-primary mt-1">Attach PDF</button>
+            </form>
+          </div>
+        {% endif %}
       </div>
-      {% if current_user.role == 'admin' %}
-        <form class="gc_minutes_of_meeting-form mt-1" data-project-id="{{ project.id }}">
-          <input type="text" name="gc_minutes" class="form-control form-control-sm" placeholder="Add new update">
-          <button type="submit" class="btn btn-sm btn-primary mt-1">Post</button>
-        </form>
-      {% endif %}
     </td>
 
     <!-- Technical Status -->
@@ -156,7 +168,25 @@
       {% if project.final_closure_remarks %}
         <div><strong>Remarks:</strong> {{ project.final_closure_remarks }}</div>
       {% endif %}
-    </td> 
+    </td>
+
+    <!-- Final Report column -->
+    <td>
+      <div style="max-height:80px; overflow:auto; font-size:0.95em;">
+        {% if project.final_report %}
+          {% for filename in project.final_report.split(',') %}
+            <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:140px;">
+              <a href="{{ url_for('uploaded_file', filename=filename) }}" target="_blank" title="{{ filename }}">
+                {{ filename.split('_', 1)[1][:22] ~ ('...' if filename.split('_', 1)[1]|length > 22 else '') if '_' in filename else (filename[:22] ~ ('...' if filename|length > 22 else '')) }}
+              </a>
+            </div>
+          {% endfor %}
+        {% else %}
+          <span class="text-muted">No Final Report uploaded.</span>
+        {% endif %}
+      </div>
+    </td>
+        
     {% if current_user.role == 'admin' %}
       <td>
         <a href="{{ url_for('edit_project', project_id=project.id) }}" class="btn btn-sm btn-warning">Edit</a>

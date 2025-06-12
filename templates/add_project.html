@@ -4,7 +4,7 @@
 {% block content %}
 <h2 class="mb-4">Add New Project</h2>
 
-<form method="POST" novalidate>
+<form method="POST" enctype="multipart/form-data" novalidate>
   {{ form.hidden_tag() }}
 
   <div class="mb-3">
@@ -163,22 +163,14 @@
     {% endfor %}
   </div>
 
-  <!-- RAB Minutes of Meeting -->
+  <!-- RAB Minutes of Meeting (PDF Upload) -->
   <div class="mb-3">
     {{ form.rab_minutes.label(class="form-label") }}
-    {% if form.rab_minutes.data %}
-      <div class="border rounded p-2 mb-2" style="background:#f8f9fa; max-height:80px; overflow:auto; font-size:0.95em;">
-        {% for mom in form.rab_minutes.data.split('\n') %}
-          <div class="mb-1 text-secondary" style="white-space:pre-line;">{{ mom }}</div>
-        {% endfor %}
-      </div>
-    {% else %}
-      <div class="text-muted mb-2">No previous RAB MoM.</div>
-    {% endif %}
-    {{ form.rab_minutes(class="form-control", placeholder="Add new RAB MoM") }}
+    {{ form.rab_minutes(class="form-control", multiple=True, accept=".pdf") }}
     {% for error in form.rab_minutes.errors %}
       <div class="text-danger small">{{ error }}</div>
     {% endfor %}
+    <div class="text-muted mb-2">Upload one or more RAB Minutes of Meeting PDFs.</div>
   </div>
 
   <!-- GC Meeting Scheduled Date -->
@@ -217,22 +209,14 @@
     {% endfor %}
   </div>
 
-  <!-- GC Minutes of Meeting -->
+  <!-- GC Minutes of Meeting (PDF Upload) -->
   <div class="mb-3">
     {{ form.gc_minutes.label(class="form-label") }}
-    {% if form.gc_minutes.data %}
-      <div class="border rounded p-2 mb-2" style="background:#f8f9fa; max-height:80px; overflow:auto; font-size:0.95em;">
-        {% for mom in form.gc_minutes.data.split('\n') %}
-          <div class="mb-1 text-secondary" style="white-space:pre-line;">{{ mom }}</div>
-        {% endfor %}
-      </div>
-    {% else %}
-      <div class="text-muted mb-2">No previous GC MoM.</div>
-    {% endif %}
-    {{ form.gc_minutes(class="form-control", placeholder="Add new GC MoM") }}
+    {{ form.gc_minutes(class="form-control", multiple=True, accept=".pdf") }}
     {% for error in form.gc_minutes.errors %}
       <div class="text-danger small">{{ error }}</div>
     {% endfor %}
+    <div class="text-muted mb-2">Upload one or more GC Minutes of Meeting PDFs.</div>
   </div>
 
   <!-- Technical Status section -->
@@ -279,6 +263,15 @@
         {% endfor %}
       </div>
     </div>
+  </div>
+
+  <div class="mb-3">
+    {{ form.final_report.label(class="form-label") }}
+    {{ form.final_report(class="form-control", multiple=True, accept=".pdf") }}
+    {% for error in form.final_report.errors %}
+      <div class="text-danger small">{{ error }}</div>
+    {% endfor %}
+    <div class="text-muted mb-2">Upload one or more Final Report PDFs.</div>
   </div>
   
   {{ form.submit(class="btn btn-success mb-4") }}

@@ -41,14 +41,15 @@ class Project(db.Model):
     Outcome_Dovetailing_with_Ongoing_Work=db.Column(db.Text,nullable = True)
     rab_meeting_date = db.Column(db.Text, nullable = True)   
     rab_meeting_held_date = db.Column(db.Text, nullable = True)
-    rab_minutes = db.Column(db.Text, nullable = True)
+    rab_minutes = db.Column(db.Text)
     gc_meeting_date = db.Column(db.Text, nullable = True)
     gc_meeting_held_date = db.Column(db.Text, nullable = True)   
-    gc_minutes = db.Column(db.Text, nullable = True)
+    gc_minutes = db.Column(db.Text)
     technical_status = db.Column(db.Text, nullable = True)
     administrative_status = db.Column(db.String(50), nullable = False, default = "Ongoing")
     final_closure_date = db.Column(db.Date, nullable=True)
     final_closure_remarks = db.Column(db.Text, nullable=True)
+    final_report = db.Column(db.Text, nullable=True) 
 
     #constraint
     __table_args__ = (
