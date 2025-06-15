@@ -56,6 +56,28 @@
         {% for p in approaching_pdc %}
           <li>{{ p.title }} (PDC: {{ p.revised_pdc }})</li>
         {% endfor %}
+      </ul> 
+    </div>
+  {% endif %}
+
+  {% if approaching_rab %}
+    <div class="alert alert-warning d-flex flex-column justify-content-center align-items-start" style="min-height:90px;">
+      <strong>Approaching RAB Meeting Dates:</strong>
+      <ul class="mb-0">
+        {% for p in approaching_rab %}
+          <li>{{ p.title }} (RAB Meeting: {{ p.rab_meeting_date }})</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  {% if approaching_gc %}
+    <div class="alert alert-warning d-flex flex-column justify-content-center align-items-start" style="min-height:90px;">
+      <strong>Approaching GC Meeting Dates:</strong>
+      <ul class="mb-0">
+        {% for p in approaching_gc %}
+          <li>{{ p.title }} (GC Meeting: {{ p.gc_meeting_date }})</li>
+        {% endfor %}
       </ul>
     </div>
   {% endif %}
@@ -247,6 +269,53 @@
   {% else %}
     <p>No projects found.</p>
   {% endif %}
+
+<!-- Add this below your table in dashboard.html -->
+<form id="filteredPdfForm" method="get" action="{{ url_for('download_filtered_pdf') }}">
+    <!-- Hidden inputs for filter parameters, to be filled by JS -->
+    <input type="hidden" name="column" id="pdf_column" value="{{ request.args.get('column', '') }}">
+    <input type="hidden" name="value" id="pdf_value" value="{{ request.args.get('value', '') }}">
+    <input type="hidden" name="cost_min" id="pdf_cost_min" value="{{ request.args.get('cost_min', '') }}">
+    <input type="hidden" name="cost_max" id="pdf_cost_max" value="{{ request.args.get('cost_max', '') }}">
+    <button type="submit" class="btn btn-secondary btn-md w-10">Download Filtered PDF</button>
+</form>
+
+<br>
+
+<button id="showAnalyticsBtn" class="btn btn-secondary btn-md w-10">Show Data Analytics for Filtered Data</button>
+<div id="filteredAnalytics" style="display:none; margin-top: 30px;"></div>
+<script>
+document.getElementById('showAnalyticsBtn').addEventListener('click', function() {
+    const column = document.getElementById('pdf_column').value;
+    const value = document.getElementById('pdf_value').value;
+    const cost_min = document.getElementById('pdf_cost_min').value;
+    const cost_max = document.getElementById('pdf_cost_max').value;
+    fetch(`/filtered_analytics?column=${encodeURIComponent(column)}&value=${encodeURIComponent(value)}&cost_min=${encodeURIComponent(cost_min)}&cost_max=${encodeURIComponent(cost_max)}`)
+        .then(response => response.text())
+        .then(html => {
+            const container = document.getElementById('filteredAnalytics');
+            container.innerHTML = html;
+            container.style.display = 'block';
+
+            // --- Force execution of scripts in the loaded HTML ---
+            const scripts = container.querySelectorAll('script');
+            scripts.forEach(oldScript => {
+                const newScript = document.createElement('script');
+                if (oldScript.src) {
+                    newScript.src = oldScript.src;
+                } else {
+                    newScript.textContent = oldScript.textContent;
+                }
+                document.body.appendChild(newScript);
+                // Optionally remove after execution
+                document.body.removeChild(newScript);
+            });
+        });
+});
+</script>
+
+<br>
+<br>
 
 <script>
     const searchInput = document.getElementById('searchInput');

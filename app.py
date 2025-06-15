@@ -26,6 +26,9 @@ import uuid
 from werkzeug.utils import secure_filename
 from werkzeug.datastructures import FileStorage
 
+import csv
+from io import StringIO
+
 # Initialize Flask app and database
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key'
@@ -153,7 +156,7 @@ def dashboard():
 
     # --- Reminder Logic ---
     today = datetime.today().date()
-    soon = today + timedelta(days=14)
+    soon = today + timedelta(days=30)
 
     # Approaching PDC deadline (not completed)
     approaching_pdc = [
@@ -161,12 +164,26 @@ def dashboard():
         if p.revised_pdc and today <= p.revised_pdc <= soon and (not p.administrative_status or p.administrative_status.lower() != "completed")
     ]
 
+    # Approaching RAB Meeting Scheduled Date
+    approaching_rab = [
+        p for p in projects
+        if p.rab_meeting_date and isinstance(p.rab_meeting_date, datetime) and today <= p.rab_meeting_date.date() <= soon
+    ]
+
+    # Approaching GC Meeting Scheduled Date
+    approaching_gc = [
+        p for p in projects
+        if p.gc_meeting_date and isinstance(p.gc_meeting_date, datetime) and today <= p.gc_meeting_date.date() <= soon
+    ]
+
     return render_template(
         'dashboard.html',
         projects=projects,
         user=current_user,
         now=datetime.now(),
-        approaching_pdc=approaching_pdc
+        approaching_pdc=approaching_pdc,
+        approaching_rab=approaching_rab,
+        approaching_gc=approaching_gc
     )
 
 
@@ -175,10 +192,10 @@ def dashboard():
 def home():
     return render_template('home.html', user=current_user)
 
-@app.route('/visualization')
-@login_required
-def visualization():
-    projects = Project.query.all()
+#Helper function to help both /visualization and /filtered_analytics routes 
+def get_analytics_data(projects):
+    from collections import Counter, defaultdict
+    from datetime import datetime
 
     # Administrative Status Pie Chart
     admin_status_counts = Counter([p.administrative_status for p in projects if p.administrative_status])
@@ -193,23 +210,21 @@ def visualization():
     # Donut Chart Data (Projects per Vertical)
     vertical_counts = Counter([p.vertical for p in projects if p.vertical])
 
-    # Donut Chart Data (Verticals per Institute) - using only the institute after the comma
+    # Donut Chart Data (Verticals per Institute)
     institute_verticals = defaultdict(set)
     for p in projects:
         if p.academia and p.vertical:
-            # Extract institute after the first comma, or use the whole string if no comma
             if ',' in p.academia:
                 institute = p.academia.split(',', 1)[1].strip()
             else:
                 institute = p.academia.strip()
             institute_verticals[institute].add(p.vertical)
     institute_vertical_counts = {inst: len(verts) for inst, verts in institute_verticals.items()}
-    
+
     # Cost vs Institute
     cost_vs_institute = defaultdict(float)
     for p in projects:
         if p.academia and p.cost_lakhs:
-            # Extract institute after the first comma, or use the whole string if no comma
             if ',' in p.academia:
                 institute = p.academia.split(',', 1)[1].strip()
             else:
@@ -217,11 +232,11 @@ def visualization():
             try:
                 cost_vs_institute[institute] += float(p.cost_lakhs)
             except ValueError:
-                continue  # skip invalid values
+                continue
     cost_institute_labels = list(cost_vs_institute.keys())
     cost_institute_values = [cost_vs_institute[k] for k in cost_institute_labels]
 
-    # Cost vs Vertical (this was missing)
+    # Cost vs Vertical
     cost_vs_vertical = defaultdict(float)
     for p in projects:
         if p.vertical and p.cost_lakhs:
@@ -240,8 +255,6 @@ def visualization():
             month = p.sanctioned_date.strftime('%Y-%m')
             monthly_vertical_counts[month][p.vertical] += 1
             all_verticals.add(p.vertical)
-
-    # Sort and prepare data
     stacked_labels = sorted(monthly_vertical_counts.keys())
     stacked_verticals = sorted(all_verticals)
     stacked_data = []
@@ -249,13 +262,12 @@ def visualization():
         data = [monthly_vertical_counts[month].get(vertical, 0) for month in stacked_labels]
         stacked_data.append({'label': vertical, 'data': data})
 
-    # --- Quarterly, Half-Yearly, Yearly Status Counts ---
+    # Quarterly, Half-Yearly, Yearly Status Counts
     def get_financial_year(date):
         if date.month >= 4:
             return f"{date.year}-{str(date.year+1)[-2:]}"
         else:
             return f"{date.year-1}-{str(date.year)[-2:]}"
-
     def get_financial_quarter(date):
         fy = get_financial_year(date)
         if date.month in [4,5,6]:
@@ -267,7 +279,6 @@ def visualization():
         else:
             q = "Q4"
         return f"{fy} {q}"
-
     def get_financial_half(date):
         fy = get_financial_year(date)
         if date.month >= 4 and date.month <= 9:
@@ -276,7 +287,6 @@ def visualization():
             h = "H2"
         return f"{fy} {h}"
 
-    # 1. Collect all periods from all projects
     fy_set, fq_set, fh_set = set(), set(), set()
     for p in projects:
         if not p.sanctioned_date:
@@ -296,12 +306,10 @@ def visualization():
             fq_set.add(get_financial_quarter(closure_date))
             fh_set.add(get_financial_half(closure_date))
 
-    # Sort periods
     year_labels_status = sorted(fy_set)
     quarter_labels = sorted(fq_set)
     half_labels = sorted(fh_set)
 
-    # 2. For each period, count status
     status_period_counts = {
         'year': {fy: {'Open':0, 'Running':0, 'Closed':0} for fy in year_labels_status},
         'quarter': {fq: {'Open':0, 'Running':0, 'Closed':0} for fq in quarter_labels},
@@ -311,7 +319,6 @@ def visualization():
     for p in projects:
         if not p.sanctioned_date:
             continue
-        # Closure date
         closure_date = None
         if getattr(p, 'final_closure_date', None):
             closure_date = p.final_closure_date
@@ -320,7 +327,6 @@ def visualization():
         elif getattr(p, 'original_pdc', None):
             closure_date = p.original_pdc
 
-        # For each period, assign status
         for fy in year_labels_status:
             fy_start = datetime.strptime(fy.split('-')[0] + '-04-01', '%Y-%m-%d').date()
             fy_end = datetime.strptime(str(int(fy.split('-')[0])+1) + '-03-31', '%Y-%m-%d').date()
@@ -343,7 +349,7 @@ def visualization():
             elif q == "Q3":
                 q_start = datetime(y_start, 10, 1).date()
                 q_end = datetime(y_start, 12, 31).date()
-            else: # Q4
+            else:
                 q_start = datetime(y_start+1, 1, 1).date()
                 q_end = datetime(y_start+1, 3, 31).date()
             if q_start <= p.sanctioned_date <= q_end:
@@ -359,7 +365,7 @@ def visualization():
             if h == "H1":
                 h_start = datetime(y_start, 4, 1).date()
                 h_end = datetime(y_start, 9, 30).date()
-            else: # H2
+            else:
                 h_start = datetime(y_start, 10, 1).date()
                 h_end = datetime(y_start+1, 3, 31).date()
             if h_start <= p.sanctioned_date <= h_end:
@@ -369,7 +375,6 @@ def visualization():
             elif p.sanctioned_date < h_start and (not closure_date or closure_date > h_end):
                 status_period_counts['half'][fh]['Running'] += 1
 
-    # Prepare data for Chart.js
     quarter_data = {
         'Running': [status_period_counts['quarter'][q]['Running'] for q in quarter_labels],
         'Closed': [status_period_counts['quarter'][q]['Closed'] for q in quarter_labels],
@@ -386,17 +391,15 @@ def visualization():
         'Open': [status_period_counts['year'][y]['Open'] for y in year_labels_status],
     }
 
-    # --- Average Project Duration by Sanction Year (in days) ---
+    # Average Project Duration by Sanction Year (in days)
     duration_by_year = {}
     for p in projects:
         if p.sanctioned_date:
-            # Use final_closure_date if available, else revised_pdc if available
             end_date = None
             if p.final_closure_date:
                 end_date = p.final_closure_date
             elif p.revised_pdc:
                 end_date = p.revised_pdc
-            # Only calculate if we have both dates
             if end_date:
                 year = p.sanctioned_date.year
                 duration = (end_date - p.sanctioned_date).days
@@ -407,13 +410,11 @@ def visualization():
         for y in avg_duration_labels
     ]
 
-    # --- Project Status Breakdown by Vertical ---
+    # Project Status Breakdown by Vertical
     vertical_status_counts = defaultdict(lambda: {'Running': 0, 'Closed': 0, 'Open': 0})
-
     for p in projects:
         if not p.vertical:
             continue
-        # Closure date logic
         closure_date = None
         if getattr(p, 'final_closure_date', None):
             closure_date = p.final_closure_date
@@ -421,16 +422,13 @@ def visualization():
             closure_date = p.revised_pdc
         elif getattr(p, 'original_pdc', None):
             closure_date = p.original_pdc
-
         today = datetime.today().date()
-        # Status logic: Closed, Open, Running
         if closure_date and closure_date <= today:
             vertical_status_counts[p.vertical]['Closed'] += 1
         elif p.sanctioned_date and p.sanctioned_date.year == today.year and (not closure_date or closure_date > today):
             vertical_status_counts[p.vertical]['Open'] += 1
         else:
             vertical_status_counts[p.vertical]['Running'] += 1
-
     vertical_status_labels = sorted(vertical_status_counts.keys())
     vertical_status_data = {
         'Running': [vertical_status_counts[v]['Running'] for v in vertical_status_labels],
@@ -438,8 +436,7 @@ def visualization():
         'Open': [vertical_status_counts[v]['Open'] for v in vertical_status_labels],
     }
 
-    # --- Projects by Funding Range (Histogram) ---
-    # Define funding brackets in lakhs
+    # Projects by Funding Range (Histogram)
     funding_brackets = [
         (0, 50), (50, 100), (100, 200), (200, 500), (500, 1000), (1000, 5000), (5000, 10000)
     ]
@@ -452,18 +449,15 @@ def visualization():
                     funding_counts[i] += 1
                     break
 
-    # --- Top Institutes by Number of Projects ---
+    # Top Institutes by Number of Projects
     institute_counts = Counter()
     for p in projects:
         if p.academia:
-            # Extract name after the first comma, or use the whole string if no comma
             if ',' in p.academia:
                 institute = p.academia.split(',', 1)[1].strip()
             else:
                 institute = p.academia.strip()
             institute_counts[institute] += 1
-
-    # Get top N (e.g., 10) institutes
     top_n = 10
     top_institutes = institute_counts.most_common(top_n)
     top_institute_labels = [x[0] for x in top_institutes]
@@ -472,26 +466,22 @@ def visualization():
     pi_names = []
     for p in projects:
         if p.pi_name:
-            # Take only before comma
             before_comma = p.pi_name.split(',')[0]
-            # Split on '/' and strip spaces
             for name in before_comma.split('/'):
                 clean_name = name.strip()
                 if clean_name:
                     pi_names.append(clean_name)
-
     pi_counts = Counter(pi_names)
-    top_pis = pi_counts.most_common(10)  # Get top 10 PIs
+    top_pis = pi_counts.most_common(10)
     top_pis_labels = [pi[0] for pi in top_pis]
     top_pis_values = [pi[1] for pi in top_pis]
 
-    # --- Administrative Status Trend (Line/Area Chart) ---
+    # Administrative Status Trend (Line/Area Chart)
     status_trend = defaultdict(lambda: defaultdict(int))
     today = datetime.today().date()
     for p in projects:
         if p.sanctioned_date:
             start_year = p.sanctioned_date.year
-            # Determine closure year (if any)
             closure_date = None
             if getattr(p, 'final_closure_date', None):
                 closure_date = p.final_closure_date
@@ -500,16 +490,11 @@ def visualization():
             elif getattr(p, 'original_pdc', None):
                 closure_date = p.original_pdc
             end_year = closure_date.year if closure_date and closure_date <= today else today.year
-
-            # Mark as "Ongoing" for every year from sanction to closure (or today)
             for year in range(start_year, end_year + 1):
                 if year == end_year and closure_date and closure_date.year == year and closure_date <= today:
-                    # If closed in this year, count as "Completed" (or "Closed") for this year
                     status_trend["Completed"][year] += 1
                 else:
                     status_trend["Ongoing"][year] += 1
-
-    # Prepare sorted lists for Chart.js
     all_statuses = sorted(status_trend.keys())
     all_years = sorted({year for status in status_trend.values() for year in status.keys()})
     status_trend_labels = [str(y) for y in all_years]
@@ -519,12 +504,9 @@ def visualization():
         status_trend_datasets.append({
             "label": status,
             "data": data,
-            "borderColor": f"rgba({60+i*40},{100+i*30},{200-i*30},0.9)",
-            "backgroundColor": f"rgba({60+i*40},{100+i*30},{200-i*30},0.2)",
-            "fill": True
         })
 
-    # --- Sanctioned Cost Trend per Year ---
+    # Sanctioned Cost Trend per Year
     cost_trend_year = {}
     for p in projects:
         if p.sanctioned_date and p.cost_lakhs is not None:
@@ -546,8 +528,7 @@ def visualization():
     stakeholder_lab_labels = list(stakeholder_counts.keys())
     stakeholder_lab_values = [stakeholder_counts[k] for k in stakeholder_lab_labels]
 
-    return render_template(
-        'visualization.html',
+    return dict(
         admin_status_counts=admin_status_counts,
         year_labels=year_labels,
         year_values=year_values,
@@ -583,6 +564,67 @@ def visualization():
         stakeholder_lab_labels=stakeholder_lab_labels,
         stakeholder_lab_values=stakeholder_lab_values,
     )
+
+#For the Data Analytics Page
+@app.route('/visualization')
+@login_required
+def visualization():
+    projects = Project.query.all()
+    analytics = get_analytics_data(projects)
+    return render_template('visualization.html', filtered=False, **analytics)
+
+#For filtered data analytics
+@app.route('/filtered_analytics')
+@login_required
+def filtered_analytics():
+    query = Project.query
+    column = request.args.get('column', '')
+    value = request.args.get('value', '').strip()
+    cost_min = request.args.get('cost_min', '').strip()
+    cost_max = request.args.get('cost_max', '').strip()
+
+    if column and (value or (column == 'cost_lakhs' and (cost_min or cost_max))):
+        if column == 'serial_no':
+            query = query.filter(Project.serial_no.ilike(f"%{value}%"))
+        elif column == 'title':
+            query = query.filter(Project.title.ilike(f"%{value}%"))
+        elif column == 'vertical':
+            query = query.filter(Project.vertical.ilike(f"%{value}%"))
+        elif column == 'academia':
+            query = query.filter(Project.academia.ilike(f"%{value}%"))
+        elif column == 'pi_name':
+            query = query.filter(Project.pi_name.ilike(f"%{value}%"))
+        elif column == 'coord_lab':
+            query = query.filter(Project.coord_lab.ilike(f"%{value}%"))
+        elif column == 'scientist':
+            query = query.filter(Project.scientist.ilike(f"%{value}%"))
+        elif column == 'cost_lakhs':
+            try:
+                if cost_min:
+                    query = query.filter(Project.cost_lakhs >= float(cost_min))
+                if cost_max:
+                    query = query.filter(Project.cost_lakhs <= float(cost_max))
+            except ValueError:
+                pass
+        elif column in ['sanctioned_date', 'original_pdc', 'revised_pdc']:
+            try:
+                date_value = datetime.strptime(value, "%Y-%m-%d").date()
+                query = query.filter(getattr(Project, column) == date_value)
+            except ValueError:
+                pass
+        elif column == 'administrative_status':
+            query = query.filter(Project.administrative_status.ilike(f"%{value}%"))
+        elif column == 'sanction_year':
+            try:
+                year = int(value)
+                query = query.filter(db.extract('year', Project.sanctioned_date) == year)
+            except ValueError:
+                pass
+
+    projects = query.order_by(db.cast(Project.serial_no, db.Integer)).all()
+    analytics = get_analytics_data(projects)
+    return render_template('partials/analytics_charts.html', filtered=True,**analytics)
+
 
 # Route for the add project page (admin only)
 @app.route('/add', methods=['GET', 'POST'])
@@ -1016,34 +1058,55 @@ def upload_mom(project_id, mom_type):
 @login_required
 def download_csv():
     projects = Project.query.order_by(db.cast(Project.serial_no, db.Integer)).all()
-    csv_data = "S. No, Nomenclature, Academia/Institute, PI Name, Coordinating Lab, Coordinating Lab Scientist, Research Vertical, Sanctioned Cost (in Lakhs), Sanctioned Date, Original PDC, Revised PDC, Stake Holding Labs, Scope/Objective of the Project, Expected Deliverables/Technology, Outcome Dovetailing with Ongoing Work, RAB Meeting Scheduled Date, RAB Meeting Held Date, RAB Minutes of Meeting, GC Meeting Scheduled Date, GC Meeting Held Date, GC Minutes of Meeting, Technical Status, Administrative Status, Final Closure Status\n"
+    output = StringIO()
+    writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
+
+    # Header row
+    writer.writerow([
+        "S. No", "Nomenclature", "Academia/Institute", "PI Name", "Coordinating Lab",
+        "Coordinating Lab Scientist", "Research Vertical", "Sanctioned Cost (in Lakhs)",
+        "Sanctioned Date", "Original PDC", "Revised PDC", "Stake Holding Labs",
+        "Scope/Objective of the Project", "Expected Deliverables/Technology",
+        "Outcome Dovetailing with Ongoing Work", "RAB Meeting Scheduled Date",
+        "RAB Meeting Held Date", "RAB Minutes of Meeting", "GC Meeting Scheduled Date",
+        "GC Meeting Held Date", "GC Minutes of Meeting", "Technical Status",
+        "Administrative Status", "Final Closure Status"
+    ])
+
     for project in projects:
-        def esc(val):
-            if val is None:
-                return ""
-            return str(val).replace('"', '""').replace('\n', ' | ')
-        csv_data += (
-            f'"{esc(project.serial_no)}","{esc(project.title)}","{esc(project.academia)}","{esc(project.pi_name)}",'
-            f'"{esc(project.coord_lab)}","{esc(project.scientist)}","{esc(project.vertical)}","{esc(project.cost_lakhs)}",'
-            f'"{esc(project.sanctioned_date)}","{esc(project.original_pdc)}",'
-            f'"{esc(project.revised_pdc)}","{esc(project.stakeholders)}",'
-            f'"{esc(project.scope_objective)}",'
-            f'"{esc(project.expected_deliverables)}",'
-            f'"{esc(project.Outcome_Dovetailing_with_Ongoing_Work)}",'
-            f'"{esc(project.rab_meeting_date)}","{esc(project.rab_meeting_held_date)}",'
-            f'"{esc(project.gc_meeting_date)}","{esc(project.gc_meeting_held_date)}",'
-            f'"{esc(project.gc_minutes)}",'
-            f'"{esc(project.technical_status)}","{esc(project.administrative_status)}"\n'
-            f'"{esc((str(project.final_closure_date) if project.final_closure_date else "") + (" | " + project.final_closure_remarks if project.final_closure_remarks else ""))}",'
-        )
+        writer.writerow([
+            project.serial_no,
+            project.title or '',
+            project.academia or '',
+            project.pi_name or '',
+            project.coord_lab or '',
+            project.scientist or '',
+            project.vertical or '',
+            project.cost_lakhs or '',
+            project.sanctioned_date or '',
+            project.original_pdc or '',
+            project.revised_pdc or '',
+            project.stakeholders or '',
+            project.scope_objective or '',
+            project.expected_deliverables or '',
+            project.Outcome_Dovetailing_with_Ongoing_Work or '',
+            project.rab_meeting_date or '',
+            project.rab_meeting_held_date or '',
+            project.rab_minutes or '',
+            project.gc_meeting_date or '',
+            project.gc_meeting_held_date or '',
+            project.gc_minutes or '',
+            (project.technical_status or '').replace('\n', ' | '),
+            project.administrative_status or '',
+            (str(project.final_closure_date) if project.final_closure_date else '') +
+            (" | " + project.final_closure_remarks if project.final_closure_remarks else "")
+        ])
 
-    # Ensure no redundant columns are added
-    csv_data = csv_data.strip()  
-
+    output.seek(0)
     current_date = datetime.now().strftime("%Y-%m-%d")
     filename = f"DIA_CoE_{current_date}.csv"
     response = app.response_class(
-        response=csv_data,
+        response=output.getvalue(),
         status=200,
         mimetype='text/csv'
     )
@@ -1174,6 +1237,154 @@ def download_pdf():
 
     buffer.seek(0)
     filename = f"DIA_CoE_{datetime.now().strftime('%Y-%m-%d')}.pdf"
+    return send_file(buffer, as_attachment=True, download_name=filename, mimetype='application/pdf')
+
+# ...existing code...
+
+@app.route('/download_filtered_pdf', methods=['GET'])
+@login_required
+def download_filtered_pdf():
+    query = Project.query
+    column = request.args.get('column', '')
+    value = request.args.get('value', '').strip()
+    cost_min = request.args.get('cost_min', '').strip()
+    cost_max = request.args.get('cost_max', '').strip()
+
+    if column and (value or (column == 'cost_lakhs' and (cost_min or cost_max))):
+        if column == 'serial_no':
+            query = query.filter(Project.serial_no.ilike(f"%{value}%"))
+        elif column == 'title':
+            query = query.filter(Project.title.ilike(f"%{value}%"))
+        elif column == 'vertical':
+            query = query.filter(Project.vertical.ilike(f"%{value}%"))
+        elif column == 'academia':
+            query = query.filter(Project.academia.ilike(f"%{value}%"))
+        elif column == 'pi_name':
+            query = query.filter(Project.pi_name.ilike(f"%{value}%"))
+        elif column == 'coord_lab':
+            query = query.filter(Project.coord_lab.ilike(f"%{value}%"))
+        elif column == 'scientist':
+            query = query.filter(Project.scientist.ilike(f"%{value}%"))
+        elif column == 'cost_lakhs':
+            try:
+                if cost_min:
+                    query = query.filter(Project.cost_lakhs >= float(cost_min))
+                if cost_max:
+                    query = query.filter(Project.cost_lakhs <= float(cost_max))
+            except ValueError:
+                pass
+        elif column in ['sanctioned_date', 'original_pdc', 'revised_pdc']:
+            try:
+                date_value = datetime.strptime(value, "%Y-%m-%d").date()
+                query = query.filter(getattr(Project, column) == date_value)
+            except ValueError:
+                pass
+        elif column == 'administrative_status':
+            query = query.filter(Project.administrative_status.ilike(f"%{value}%"))
+        elif column == 'sanction_year':
+            try:
+                year = int(value)
+                query = query.filter(db.extract('year', Project.sanctioned_date) == year)
+            except ValueError:
+                pass
+
+    projects = query.order_by(db.cast(Project.serial_no, db.Integer)).all()
+
+    # --- PDF generation logic (same as download_pdf) ---
+    buffer = BytesIO()
+    page_width, page_height = landscape(A4)
+    margin = 30
+    available_width = page_width - 2 * margin
+
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=margin, rightMargin=margin)
+    elements = []
+
+    styles = getSampleStyleSheet()
+    wrap_style = styles['Normal']
+    wrap_style.fontSize = 7
+    wrap_style.leading = 9
+
+    header_row = [
+        Paragraph("S. No.", wrap_style),
+        Paragraph("Nomenclature", wrap_style),
+        Paragraph("Academia / Institute", wrap_style),
+        Paragraph("PI Name", wrap_style),
+        Paragraph("Coordinating Lab", wrap_style),
+        Paragraph("Coordinating Lab Scientist", wrap_style),
+        Paragraph("Research Vertical", wrap_style),
+        Paragraph("Cost (Lakhs)", wrap_style),
+        Paragraph("Sanctioned Date", wrap_style),
+        Paragraph("Original PDC", wrap_style),
+        Paragraph("Revised PDC", wrap_style),
+        Paragraph("Stake Holding Labs", wrap_style),
+        Paragraph("Scope / Objective of the Project", wrap_style),
+        Paragraph("Expected Deliverables / Technology", wrap_style),
+        Paragraph("Outcome Dovetailing with Ongoing Work", wrap_style),
+        Paragraph("RAB Meeting Scheduled Date", wrap_style),
+        Paragraph("RAB Meeting Held Date", wrap_style),
+        Paragraph("GC Meeting Scheduled Date", wrap_style),
+        Paragraph("GC Meeting Held Date", wrap_style),
+        Paragraph("Technical Status", wrap_style),
+        Paragraph("Administrative Status", wrap_style),
+        Paragraph("Final Closure Status", wrap_style)
+    ]
+
+    data = [header_row]
+
+    for project in projects:
+        data.append([
+            str(project.serial_no),
+            Paragraph(project.title or '', wrap_style),
+            Paragraph(project.academia or '', wrap_style),
+            Paragraph(project.pi_name or '', wrap_style),
+            Paragraph(project.coord_lab or '', wrap_style),
+            Paragraph(project.scientist or '', wrap_style),
+            Paragraph(project.vertical or '', wrap_style),
+            str(project.cost_lakhs or ''),
+            str(project.sanctioned_date or ''),
+            str(project.original_pdc or ''),
+            str(project.revised_pdc or ''),
+            Paragraph(project.stakeholders or '', wrap_style),
+            Paragraph(project.scope_objective or '', wrap_style),
+            Paragraph(project.expected_deliverables or '', wrap_style),
+            Paragraph(project.Outcome_Dovetailing_with_Ongoing_Work or '', wrap_style),
+            str(project.rab_meeting_date or ''),
+            str(project.rab_meeting_held_date or ''),
+            str(project.gc_meeting_date or ''),
+            str(project.gc_meeting_held_date or ''),
+            Paragraph((project.technical_status or '').replace('\n', '<br/>'), wrap_style),
+            Paragraph(project.administrative_status or '', wrap_style),
+            Paragraph(
+                (project.final_closure_date.strftime('%Y-%m-%d') if project.final_closure_date else '') +
+                ('<br/><b>Remarks:</b> ' + project.final_closure_remarks if project.final_closure_remarks else ''),
+                wrap_style
+            )
+        ])
+
+    col_widths = [
+        20, 100, 65, 65, 60, 70, 60, 50, 75, 75, 75, 70, 75, 75, 75, 75, 75, 75, 75, 70, 65, 70,
+    ]
+    scale_factor = available_width / sum(col_widths)
+    col_widths = [w * scale_factor for w in col_widths]
+
+    table = Table(data, colWidths=col_widths, repeatRows=1)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+        ('GRID', (0, 0), (-1, -1), 0.25, colors.grey),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 7),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 3),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+    ]))
+
+    elements.append(table)
+    doc.build(elements)
+
+    buffer.seek(0)
+    filename = f"DIA_CoE_filtered_{datetime.now().strftime('%Y-%m-%d')}.pdf"
     return send_file(buffer, as_attachment=True, download_name=filename, mimetype='application/pdf')
 
 # Route for the view logs page(Admin only)
